@@ -11,53 +11,64 @@
 
 #pragma once
 
-#include "pch.h"
-
 namespace HoloLensForCV
 {
-	//
-	// Saves sensor images originated on device to disk and collects sensor frame
-	// metadata that will be used to create the per-sensor recording manifest CSV
-	// file.
-	//
-	public ref class SensorFrameRecorderSink sealed
-		: public ISensorFrameSink
-	{
-	public:
-		SensorFrameRecorderSink(
-			_In_ SensorType sensorType,
-			_In_ Platform::String^ sensorName);
+    //
+    // Subset of sensor frame metadata relevant to the recording process.
+    //
+    struct SensorFrameRecorderLogEntry
+    {
+        Windows::Foundation::DateTime Timestamp;
+        Windows::Foundation::Numerics::float4x4 FrameToOrigin;
+        Windows::Foundation::Numerics::float4x4 CameraViewTransform;
+        Windows::Foundation::Numerics::float4x4 CameraProjectionTransform;
+        std::wstring RelativeImagePath;
+    };
 
-		void Start(_In_ Windows::Storage::StorageFolder^ archiveSourceFolder);
+    //
+    // Saves sensor images originated on device to disk and collects sensor frame
+    // metadata that will be used to create the per-sensor recording manifest CSV
+    // file.
+    //
+    public ref class SensorFrameRecorderSink sealed
+        : public ISensorFrameSink
+    {
+    public:
+        SensorFrameRecorderSink(
+            _In_ SensorType sensorType,
+            _In_ Platform::String^ sensorName);
 
-		void Stop();
+        void Start(
+            _In_ Windows::Storage::StorageFolder^ archiveSourceFolder);
 
-		virtual void Send(_In_ SensorFrame^ sensorFrame);
+        void Stop();
 
-	internal:
-		Platform::String^ GetSensorName();
+        virtual void Send(
+            SensorFrame^ sensorFrame);
 
-		CameraIntrinsics^ GetCameraIntrinsics();
+    internal:
+        Platform::String^ GetSensorName();
 
-		void ReportArchiveSourceFiles(
-			_Inout_ std::vector<std::wstring>& sourceFiles);
+        CameraIntrinsics^ GetCameraIntrinsics();
 
-	private:
-		~SensorFrameRecorderSink();
+        void ReportArchiveSourceFiles(
+            _Inout_ std::vector<std::wstring>& sourceFiles);
 
-		Platform::String^ _sensorName;
+    private:
+        ~SensorFrameRecorderSink();
 
-		SensorType _sensorType;
+    private:
+        Platform::String^ _sensorName;
 
-		std::mutex _sinkMutex;
+        SensorType _sensorType;
 
-		Windows::Storage::StorageFolder^ _archiveSourceFolder;
+        std::mutex _sinkMutex;
 
-		std::unique_ptr<Io::Tarball> _bitmapTarball;
-		std::unique_ptr<CsvWriter> _csvWriter;
+        Windows::Storage::StorageFolder^ _archiveSourceFolder;
+        Windows::Storage::StorageFolder^ _dataArchiveSourceFolder;
 
-		CameraIntrinsics^ _cameraIntrinsics;
+        std::vector<SensorFrameRecorderLogEntry> _recorderLog;
 
-		Windows::Foundation::DateTime _prevFrameTimestamp;
-	};
+        CameraIntrinsics^ _cameraIntrinsics;
+    };
 }

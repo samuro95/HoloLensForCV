@@ -55,7 +55,7 @@ namespace Recorder
 #ifdef RECORDER_USE_SPEECH
         StartRecognizeSpeechCommands();
         Platform::StringReference startSentence =
-            L"Say 'start' to begin, and 'stop' to end recording";
+            L"Say 'start' to begin, and 'stop' to end recording.";
 #else
         Platform::StringReference startSentence =
             L"Air tap to begin and end recording";
@@ -261,12 +261,10 @@ namespace Recorder
             return;
         }
 
-        SaySentence(Platform::StringReference(L"Ending recording, wait a moment to finish"));
+        SaySentence(Platform::StringReference(L"Ending recording"));
 
         _sensorFrameRecorder->Stop();
         _sensorFrameRecorderStarted = false;
-
-        SaySentence(Platform::StringReference(L"Finished recording"));
     }
 
     concurrency::task<void> AppMain::StopCurrentRecognizerIfExists()
@@ -516,33 +514,14 @@ namespace Recorder
 
     void AppMain::StartHoloLensMediaFrameSourceGroup()
     {
-		REQUIRES(
-			!_mediaFrameSourceGroupStarted &&
-			!_sensorFrameRecorderStarted &&
-			nullptr != _spatialPerception);
-
-		_sensorFrameRecorder =
-			ref new HoloLensForCV::SensorFrameRecorder();
-
-        _mediaFrameSourceGroup =
-            ref new HoloLensForCV::MediaFrameSourceGroup(
-                HoloLensForCV::MediaFrameSourceGroupType::HoloLensResearchModeSensors,
-                _spatialPerception, _sensorFrameRecorder);
+        std::vector<HoloLensForCV::SensorType> enabledSensorTypes;
 
         //
         // Enabling all of the Research Mode sensors at the same time can be quite expensive
         // performance-wise. It's best to scope down the list of enabled sensors to just those
-        // that are required for a given task. In this example, all sensors are selected.
-        // To only select a subset, use the commented code below.
+        // that are required for a given task. In this example, we will select just the visible
+        // light sensors.
         //
-
-		_sensorFrameRecorder->EnableAll();
-        _mediaFrameSourceGroup->EnableAll();
-
-		/*
-		
-		std::vector<HoloLensForCV::SensorType> enabledSensorTypes;
-
         enabledSensorTypes.emplace_back(
             HoloLensForCV::SensorType::VisibleLightLeftLeft);
 
@@ -555,23 +534,39 @@ namespace Recorder
         enabledSensorTypes.emplace_back(
             HoloLensForCV::SensorType::VisibleLightRightRight);
 
+        REQUIRES(
+            !_mediaFrameSourceGroupStarted &&
+            !_sensorFrameRecorderStarted &&
+            nullptr != _spatialPerception);
+
+        _sensorFrameRecorder =
+            ref new HoloLensForCV::SensorFrameRecorder();
+
         for (const auto enabledSensorType : enabledSensorTypes)
         {
-            _sensorFrameRecorder->Enable(enabledSensorType);
-            _mediaFrameSourceGroup->Enable(enabledSensorType);
+            _sensorFrameRecorder->Enable(
+                enabledSensorType);
         }
 
-		*/
+        _mediaFrameSourceGroup =
+            ref new HoloLensForCV::MediaFrameSourceGroup(
+                HoloLensForCV::MediaFrameSourceGroupType::HoloLensResearchModeSensors,
+                _spatialPerception,
+                _sensorFrameRecorder);
 
-        //
-        // Start the media frame source groups.
-        //
+        for (const auto enabledSensorType : enabledSensorTypes)
+        {
+            _mediaFrameSourceGroup->Enable(
+                enabledSensorType);
+        }
 
-        auto startMediaFrameSourceGroupTask =
+        auto captureSartAsyncTask =
             concurrency::create_task(
                 _mediaFrameSourceGroup->StartAsync());
 
-        startMediaFrameSourceGroupTask.then([&]() {
+        captureSartAsyncTask.then(
+            [&]()
+        {
             _mediaFrameSourceGroupStarted = true;
         });
     }

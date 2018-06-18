@@ -35,7 +35,7 @@
 #include <d2d1_2.h>
 #include <d3d11_4.h>
 #include <DirectXColors.h>
-#include <DirectXHelpers.h>
+//#include <DirectXHelpers.h>
 #include <DirectXMath.h>
 #include <dwrite_2.h>
 #include <wincodec.h>

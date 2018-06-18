@@ -103,36 +103,30 @@ namespace HoloLensForCV
         //
         std::vector<std::wstring> sourceFiles;
 
-		for (SensorFrameRecorderSink^ sensorFrameSink : _sensorFrameSinks)
-		{
-			if (nullptr == sensorFrameSink)
-			{
-				continue;
-			}
+        for (SensorFrameRecorderSink^ sensorFrameSink : _sensorFrameSinks)
+        {
+            if (nullptr == sensorFrameSink)
+            {
+                continue;
+            }
 
-			sensorFrameSink->Stop();
+            sensorFrameSink->Stop();
 
-		}
-
-		for (SensorFrameRecorderSink^ sensorFrameSink : _sensorFrameSinks)
-		{
-			if (nullptr == sensorFrameSink)
-			{
-				continue;
-			}
-
-            sensorFrameSink->ReportArchiveSourceFiles(sourceFiles);
+            sensorFrameSink->ReportArchiveSourceFiles(
+                sourceFiles);
         }
 
         //
         // Add recording version information.
         //
-        ReportRecorderVersioningInformation(sourceFiles);
+        ReportRecorderVersioningInformation(
+            sourceFiles);
 
         //
         // Add a description of camera intrinsics.
         //
-        ReportCameraCalibrationInformation(sourceFiles);
+        ReportCameraCalibrationInformation(
+            sourceFiles);
 
         //
         // Create a TAR file containing all the recording files reported so far.
@@ -210,7 +204,7 @@ namespace HoloLensForCV
     void SensorFrameRecorder::ReportCameraCalibrationInformation(
         _Inout_ std::vector<std::wstring>& sourceFiles)
     {
-        // TODO: Support PV calibration.
+        //TODO: Support PV calibration
 
         for (SensorFrameRecorderSink^ sensorFrameSink : _sensorFrameSinks)
         {

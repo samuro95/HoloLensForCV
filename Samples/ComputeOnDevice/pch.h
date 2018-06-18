@@ -28,6 +28,10 @@
 #include <stddef.h>
 #include <unordered_set>
 #include <memorybuffer.h>
+#include <concrt.h>
+#include <wincodec.h>
+#include <wrl.h>
+
 
 #include <windows.graphics.directx.direct3d11.interop.h>
 #include <Collection.h>
@@ -35,6 +39,11 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/calib3d/calib3d.hpp>
+
+#include <opencv2/core/core.hpp>
+#include <opencv2/core/eigen.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <iostream>
 
 #include <SimpleMath.h>
 #include <DirectXHelpers.h>
@@ -44,3 +53,5 @@
 #include <Rendering/All.h>
 #include <Holographic/All.h>
 #include <OpenCVHelpers/All.h>
+
+#include <Eigen/Dense>

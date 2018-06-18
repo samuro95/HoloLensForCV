@@ -33,10 +33,13 @@ namespace Rendering
             // Get the gaze direction relative to the given coordinate system.
             const float3 headPosition = pointerPose->Head->Position;
             const float3 headDirection = pointerPose->Head->ForwardDirection;
+			float3 const headBack = -headDirection;
+			float3 const headUp = pointerPose->Head->UpDirection;
+			float3 const headRight = cross(headDirection, headUp);
 
             // The hologram is positioned two meters along the user's gaze direction.
             constexpr float distanceFromUser = 2.0f; // meters
-            const float3 gazeAtTwoMeters = headPosition + (distanceFromUser * headDirection);
+            const float3 gazeAtTwoMeters = headPosition + (distanceFromUser * headDirection ) ;
 
             // This will be used as the translation component of the hologram's
             // model transform.

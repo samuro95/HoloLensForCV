@@ -11,6 +11,7 @@
 
 #include "pch.h"
 
+using namespace DirectX;
 using namespace D2D1;
 using namespace Microsoft::WRL;
 using namespace Windows::Graphics::DirectX::Direct3D11;
