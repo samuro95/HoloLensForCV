@@ -121,7 +121,7 @@ namespace ComputeOnDevice
 	}
 
 
-	void AppMain::DetectPoolTable(Mat frame, Mat cameraMatrix, Mat distCoeffs, Windows::Foundation::Numerics::float4x4 FrameToOrigin)
+	void AppMain::DetectPoolTable(_In_ Mat frame, Mat cameraMatrix, Mat distCoeffs, Windows::Foundation::Numerics::float4x4 FrameToOrigin, _Out_ SpatialCoordinateSystem^ anchorSpace)
 	{
 
 		//Use ChessBoardDetection to detect a corner and set a coordinate system linked with the plan of the pool table
@@ -159,7 +159,6 @@ namespace ComputeOnDevice
 			image_points.push_back(corners);
 			object_points.push_back(obj);
 
-
 			Mat rvec;
 			Mat tvec;
 			vector<Point3f> object_point = object_points[0];
@@ -169,8 +168,8 @@ namespace ComputeOnDevice
 			solvePnP(object_point, image_point, cameraMatrix, distCoeffs, rvec, tvec);
 
 			//draw axis 
-			float length = 3.0f;
-			vector< Point3f > axisPoints;
+			float length = 2.0f;
+			vector<Point3f> axisPoints;
 			axisPoints.push_back(Point3f(0, 0, 0));
 			axisPoints.push_back(Point3f(length, 0, 0));
 			axisPoints.push_back(Point3f(0, length, 0));
@@ -184,29 +183,34 @@ namespace ComputeOnDevice
 			line(frame, imagePoints[0], imagePoints[3], Scalar(255, 0, 0), 3);
 
 			//Convert rotation vector into rotation matrix 
-			Mat a;
-			Rodrigues(rvec, a);
-
-			//float4x4 Rotation = float4x4(R.at<float>(0, 0), R.at<float>(0, 1), R.at<float>(0, 2), float(0.) , R.at<float>(1, 0), R.at<float>(1, 1), R.at<float>(1, 2), float(0.), R.at<float>(2, 0), R.at<float>(2, 1), R.at<float>(2, 2), float(0.), float(0.), float(0.), float(0.), float(1.));
-			//quaternion make_quaternion_from_rotation_matrix(Rotation);
-
+			Mat R;
+			Rodrigues(rvec, R);
 
 			float3 Chess_position_camera_space = (tvec.at<float>(0,0), tvec.at<float>(1,0), tvec.at<float>(2,0));
 			float3 Chess_position_world_space = transform(Chess_position_camera_space, FrameToOrigin);
 
+			//create quaternion 
+
+			float4x4 Rotation = float4x4(R.at<float>(0, 0), R.at<float>(0, 1), R.at<float>(0, 2), float(0.) , R.at<float>(1, 0), R.at<float>(1, 1), R.at<float>(1, 2), float(0.), R.at<float>(2, 0), R.at<float>(2, 1), R.at<float>(2, 2), float(0.), float(0.), float(0.), float(0.), float(1.));
+		
+			orientation make_quaternion_from_rotation_matrix(Rotation);
+
 			// Create the anchor at position.
 
-			SpatialAnchor^ m_table_anchor = SpatialAnchor::TryCreateRelativeTo(m_WorldCoordinateSystem, Chess_position_world_space);
+			SpatialAnchor^ m_chess_anchor = SpatialAnchor::TryCreateRelativeTo(m_WorldCoordinateSystem,Chess_position_world_space,orientation);
+			 if (anchor != nullptr)
+			 {	
+				float4x4 WorldCoordinateSystemToAnchorSpace;
+				SpatialCoordinateSystem^ anchorSpace = m_table_anchor->CoordinateSystem;
 
-			//float4x4 anchorSpaceToCurrentCoordinateSystem;
-			//SpatialCoordinateSystem^ anchorSpace = table_anchor->CoordinateSystem;
-			//const auto tryTransform = anchorSpace->TryGetTransformTo(currentCoordinateSystem);
-			//if (tryTransform != nullptr)
-			//{
-			//anchorSpaceToCurrentCoordinateSystem = tryTransform->Value;
-			//}
+				const auto tryTransform = m_WorldCoordinateSystem->TryGetTransformTo(anchorSpace);
+				if (tryTransform != nullptr)
+				{
+					WorldCoordinateSystemToAnchorSpace = tryTransform->Value;
+					_isPoolDetected = true;
+				}
 
-			_isPoolDetected = true;
+			 }
 
 		}
 
@@ -321,12 +325,15 @@ namespace ComputeOnDevice
 			wrappedImage);
 
 
-		//if (_isPoolDetected==false)
-		//	{
-		//	DetectPoolTable(wrappedImage, cameraMatrix, distCoeffs, FrameToOrigin);
-		//	}
+		if (_isPoolDetected==false)
+			{
+			DetectPoolTable(wrappedImage, cameraMatrix, distCoeffs, FrameToOrigin, anchorSpace);
+			}
 
-		DetectPoolTable(wrappedImage, cameraMatrix, distCoeffs, FrameToOrigin);
+
+		
+
+		//DetectPoolTable(wrappedImage, cameraMatrix, distCoeffs, FrameToOrigin);
 
 
 		if (!_undistortMapsInitialized)
@@ -378,17 +385,12 @@ namespace ComputeOnDevice
 				cv::INTER_AREA);
 		}
 
-
-
-
-
-		//Mat frame = _resizedPVCameraImage;
+		Mat frame = _resizedPVCameraImage;
 
 		/*
 
 		Mat HSVframe;
 		vector<Mat> channels(3);
-
 
 		cv::blur(frame, frame, cv::Size(5, 5));
 
@@ -461,21 +463,6 @@ namespace ComputeOnDevice
 
 		/*
 
-		// Create the anchor at position.
-		const float3 anchorposition = float3{ 0.5f, 0.5f, 0.0f };
-		SpatialAnchor^ table_anchor = SpatialAnchor::TryCreateRelativeTo(cameraCoordinateSystem, anchorposition);
-
-		float4x4 anchorSpaceToCurrentCoordinateSystem;
-		SpatialCoordinateSystem^ anchorSpace = table_anchor->CoordinateSystem;
-		const auto tryTransform = anchorSpace->TryGetTransformTo(currentCoordinateSystem);
-		if (tryTransform != nullptr)
-		{
-		anchorSpaceToCurrentCoordinateSystem = tryTransform->Value;
-		}
-
-
-
-
 
 		//Blurs the image using the median filter with the ksize�ksize aperture
 		cv::medianBlur(
@@ -483,17 +470,12 @@ namespace ComputeOnDevice
 		_blurredPVCameraImage,
 		3);
 
-
-		//Finds edges in an image using the Canny a lgorithm
+		//Finds edges in an image using the Canny algorithm
 		cv::Canny(
 		_blurredPVCameraImage,
 		_cannyPVCameraImage,
 		50.0,
 		200.0);
-
-
-
-
 
 		//For each pxel of the edge map, if the pixel value is > 64, color the
 		//corresponding pixel in blurredPVCameraImage
@@ -531,7 +513,6 @@ namespace ComputeOnDevice
 		//finder.drawDetectedLines(_blurredPVCameraImage);
 
 		//without using  class
-
 
 		std::vector<cv::Vec4i> lines;
 		cv::HoughLinesP(_cannyPVCameraImage, lines, 1, 3*3.14159 / 180, 70, 50, 80);

@@ -92,7 +92,7 @@ namespace ComputeOnDevice
 
 		Windows::Perception::Spatial::SpatialCoordinateSystem^ m_WorldCoordinateSystem;
 
-		void DetectPoolTable(_In_ cv::Mat frame, cv::Mat cameraMatrix, cv::Mat distCoeffs, Windows::Foundation::Numerics::float4x4 FrameToOrigin);
+        void DetectPoolTable(_In_ cv::Mat frame, cv::Mat cameraMatrix, cv::Mat distCoeffs, Windows::Foundation::Numerics::float4x4 FrameToOrigin, _Out_Windows::Perception::Spatial::SpatialCoordinateSystem^ anchorSpace);
 
 		// Cached pointer to device resources.
 		std::shared_ptr<DX::DeviceResources>                            m_deviceResources;
