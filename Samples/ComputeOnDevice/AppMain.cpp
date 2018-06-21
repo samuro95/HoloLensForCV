@@ -126,7 +126,7 @@ namespace ComputeOnDevice
 	}
 
 
-	void AppMain::DetectPoolTable(_In_ Mat frame, SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Foundation::Numerics::float4x4 CameraViewTransform)
+	void AppMain::DetectPoolTable(Mat frame, SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Foundation::Numerics::float4x4 CameraViewTransform)
 	{
 
 		//Use ChessBoardDetection to detect a corner and set a coordinate system linked with the plan of the pool table
@@ -236,7 +236,7 @@ namespace ComputeOnDevice
 
 			vector<Point3f> testPoints;
 			vector< Point2f > imtestPoints;
-			testPoints.push_back(Point3f(0, 0, -2));
+			testPoints.push_back(Point3f(0, 0, 2));
 			projectPoints(testPoints, rvec_cam, tvec_cam, cameraMatrix, distCoeffs, imtestPoints);
 
 			//float3 Chess_position_camera_space = 0.02f*(float(tvec.at<double>(0,0)), float(tvec.at<double>(1,0)), float(tvec.at<double>(2,0)));

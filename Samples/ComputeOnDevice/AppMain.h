@@ -92,7 +92,7 @@ namespace ComputeOnDevice
 
 		Windows::Perception::Spatial::SpatialCoordinateSystem^ m_WorldCoordinateSystem;
 
-        void DetectPoolTable(_In_ Mat frame, SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Foundation::Numerics::float4x4 CameraViewTransform);
+        void DetectPoolTable(Mat frame, SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Foundation::Numerics::float4x4 CameraViewTransform);
 
 		void sign(_In_ float x, _Out_ int res);
 
