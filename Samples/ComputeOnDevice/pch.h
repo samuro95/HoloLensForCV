@@ -41,7 +41,6 @@
 #include <opencv2/calib3d/calib3d.hpp>
 
 #include <opencv2/core/core.hpp>
-#include <opencv2/core/eigen.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <iostream>
 
@@ -53,5 +52,3 @@
 #include <Rendering/All.h>
 #include <Holographic/All.h>
 #include <OpenCVHelpers/All.h>
-
-#include <Eigen/Dense>

@@ -137,9 +137,15 @@ namespace HoloLensForCV
 
         if (nullptr != frameCoordinateSystem)
         {
-            Platform::IBox<Windows::Foundation::Numerics::float4x4>^ frameToOriginReference =
+            
+			sensorFrame->CameraCoordinateSystem = frameCoordinateSystem;
+			
+			Platform::IBox<Windows::Foundation::Numerics::float4x4>^ frameToOriginReference =
                 frameCoordinateSystem->TryGetTransformTo(
                     _spatialPerception->GetOriginFrameOfReference()->CoordinateSystem);
+
+			Platform::IBox<Windows::Foundation::Numerics::float4x4>^ OriginToFrameReference =
+				_spatialPerception->GetOriginFrameOfReference()->CoordinateSystem->TryGetTransformTo(frameCoordinateSystem);
 
             if (nullptr != frameToOriginReference)
             {
@@ -156,6 +162,9 @@ namespace HoloLensForCV
 
                 sensorFrame->FrameToOrigin =
                     frameToOriginReference->Value;
+
+				sensorFrame->OriginToFrame =
+					OriginToFrameReference->Value;
 
                 frameToOriginObtained = true;
             }
@@ -176,7 +185,12 @@ namespace HoloLensForCV
 
             sensorFrame->FrameToOrigin =
                 zero;
+			sensorFrame->OriginToFrame =
+				zero;
+
         }
+
+
 
         //
         // Extract camera view transform, if the MFT exposed it:

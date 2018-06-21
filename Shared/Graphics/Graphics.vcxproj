@@ -263,7 +263,6 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
     <Import Project="$(SolutionDir)\packages\directxtk_uwp.2017.6.21.1\build\native\directxtk_uwp.targets" Condition="Exists('$(SolutionDir)\packages\directxtk_uwp.2017.6.21.1\build\native\directxtk_uwp.targets')" />
-    <Import Project="..\..\packages\Eigen.3.3.3\build\native\Eigen.targets" Condition="Exists('..\..\packages\Eigen.3.3.3\build\native\Eigen.targets')" />
   </ImportGroup>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
@@ -271,6 +270,5 @@
     </PropertyGroup>
     <Error Condition="!Exists('$(SolutionDir)\packages\directxtk_uwp.2017.6.21.1\build\native\directxtk_uwp.props')" Text="$([System.String]::Format('$(ErrorText)', '$(SolutionDir)\packages\directxtk_uwp.2017.6.21.1\build\native\directxtk_uwp.props'))" />
     <Error Condition="!Exists('$(SolutionDir)\packages\directxtk_uwp.2017.6.21.1\build\native\directxtk_uwp.targets')" Text="$([System.String]::Format('$(ErrorText)', '$(SolutionDir)\packages\directxtk_uwp.2017.6.21.1\build\native\directxtk_uwp.targets'))" />
-    <Error Condition="!Exists('..\..\packages\Eigen.3.3.3\build\native\Eigen.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\packages\Eigen.3.3.3\build\native\Eigen.targets'))" />
   </Target>
 </Project>

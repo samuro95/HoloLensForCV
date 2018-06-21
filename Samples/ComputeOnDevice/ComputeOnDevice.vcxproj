@@ -169,7 +169,6 @@
     <Import Project="$(SolutionDir)\packages\OpenCV.Win.HighGUI.310.6.1\build\native\opencv.win.highgui.targets" Condition="Exists('$(SolutionDir)\packages\OpenCV.Win.HighGUI.310.6.1\build\native\opencv.win.highgui.targets')" />
     <Import Project="$(SolutionDir)\packages\OpenCV.Win.Features2D.310.6.1\build\native\opencv.win.features2d.targets" Condition="Exists('$(SolutionDir)\packages\OpenCV.Win.Features2D.310.6.1\build\native\opencv.win.features2d.targets')" />
     <Import Project="$(SolutionDir)\packages\OpenCV.Win.Calib3D.310.6.1\build\native\opencv.win.calib3d.targets" Condition="Exists('$(SolutionDir)\packages\OpenCV.Win.Calib3D.310.6.1\build\native\opencv.win.calib3d.targets')" />
-    <Import Project="..\..\packages\Eigen.3.3.3\build\native\Eigen.targets" Condition="Exists('..\..\packages\Eigen.3.3.3\build\native\Eigen.targets')" />
   </ImportGroup>
   <PropertyGroup>
     <AppxPackageSigningEnabled>true</AppxPackageSigningEnabled>
@@ -189,6 +188,5 @@
     <Error Condition="!Exists('$(SolutionDir)\packages\OpenCV.Win.HighGUI.310.6.1\build\native\opencv.win.highgui.targets')" Text="$([System.String]::Format('$(ErrorText)', '$(SolutionDir)\packages\OpenCV.Win.HighGUI.310.6.1\build\native\opencv.win.highgui.targets'))" />
     <Error Condition="!Exists('$(SolutionDir)\packages\OpenCV.Win.Features2D.310.6.1\build\native\opencv.win.features2d.targets')" Text="$([System.String]::Format('$(ErrorText)', '$(SolutionDir)\packages\OpenCV.Win.Features2D.310.6.1\build\native\opencv.win.features2d.targets'))" />
     <Error Condition="!Exists('$(SolutionDir)\packages\OpenCV.Win.Calib3D.310.6.1\build\native\opencv.win.calib3d.targets')" Text="$([System.String]::Format('$(ErrorText)', '$(SolutionDir)\packages\OpenCV.Win.Calib3D.310.6.1\build\native\opencv.win.calib3d.targets'))" />
-    <Error Condition="!Exists('..\..\packages\Eigen.3.3.3\build\native\Eigen.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\packages\Eigen.3.3.3\build\native\Eigen.targets'))" />
   </Target>
 </Project>

@@ -17,7 +17,7 @@
 
 using namespace cv;
 using namespace std;
-using namespace Eigen;
+
 
 
 using namespace Concurrency;
@@ -32,7 +32,7 @@ using namespace Windows::Media::Devices::Core;
 using namespace Windows::Perception::Spatial;
 using namespace Windows::UI::Input::Spatial;
 
-using namespace std::placeholders;
+using namespace std::placeholders; 
 
 using namespace Microsoft::WRL::Wrappers;
 using namespace Microsoft::WRL;
@@ -120,11 +120,58 @@ namespace ComputeOnDevice
 		}
 	}
 
+	void AppMain::sign(_In_ float x, _Out_ int res)
+	{
+		res = (x > 0) - (x < 0);
+	}
 
-	void AppMain::DetectPoolTable(Mat frame, Mat cameraMatrix, Mat distCoeffs, Windows::Foundation::Numerics::float4x4 FrameToOrigin)
+
+	void AppMain::DetectPoolTable(_In_ Mat frame, SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Foundation::Numerics::float4x4 CameraViewTransform)
 	{
 
 		//Use ChessBoardDetection to detect a corner and set a coordinate system linked with the plan of the pool table
+
+		Mat cameraMatrix(3, 3, CV_64FC1);
+		Mat distCoeffs(5, 1, CV_64FC1);
+
+		if (nullptr != cameraIntrinsics)
+		{
+			cv::setIdentity(cameraMatrix);
+
+			cameraMatrix.at<double>(0, 0) = cameraIntrinsics->FocalLength.x;
+			cameraMatrix.at<double>(1, 1) = cameraIntrinsics->FocalLength.y;
+			cameraMatrix.at<double>(0, 2) = cameraIntrinsics->PrincipalPoint.x;
+			cameraMatrix.at<double>(1, 2) = cameraIntrinsics->PrincipalPoint.y;
+
+
+			distCoeffs.at<double>(0, 0) = cameraIntrinsics->RadialDistortion.x;
+			distCoeffs.at<double>(1, 0) = cameraIntrinsics->RadialDistortion.y;
+			distCoeffs.at<double>(2, 0) = cameraIntrinsics->TangentialDistortion.x;
+			distCoeffs.at<double>(3, 0) = cameraIntrinsics->TangentialDistortion.y;
+			distCoeffs.at<double>(4, 0) = cameraIntrinsics->RadialDistortion.z;
+
+		}
+
+
+		Mat tvec_cam(3, 1, cv::DataType<double>::type); // translation vector extrisics camera 
+		Mat R_cam(3, 3, cv::DataType<double>::type); //rotation vector extrisics camera 
+
+		tvec_cam.at<double>(0, 0) = CameraViewTransform.m14;
+		tvec_cam.at<double>(1, 0) = CameraViewTransform.m24;
+		tvec_cam.at<double>(2, 0) = CameraViewTransform.m34;
+
+		R_cam.at<double>(0, 0) = CameraViewTransform.m11;
+		R_cam.at<double>(0, 1) = CameraViewTransform.m21;
+		R_cam.at<double>(2, 0) = CameraViewTransform.m31;
+		R_cam.at<double>(0, 1) = CameraViewTransform.m12;
+		R_cam.at<double>(1, 1) = CameraViewTransform.m22;
+		R_cam.at<double>(2, 1) = CameraViewTransform.m32;
+		R_cam.at<double>(0, 2) = CameraViewTransform.m13;
+		R_cam.at<double>(1, 2) = CameraViewTransform.m23;
+		R_cam.at<double>(2, 2) = CameraViewTransform.m33;
+
+		Mat rvec_cam(3, 1, cv::DataType<double>::type);//rodrigues rotation matrix
+		Rodrigues(R_cam, rvec_cam);
 
 
 		Mat gray;
@@ -159,7 +206,6 @@ namespace ComputeOnDevice
 			image_points.push_back(corners);
 			object_points.push_back(obj);
 
-
 			Mat rvec;
 			Mat tvec;
 			vector<Point3f> object_point = object_points[0];
@@ -169,8 +215,8 @@ namespace ComputeOnDevice
 			solvePnP(object_point, image_point, cameraMatrix, distCoeffs, rvec, tvec);
 
 			//draw axis 
-			float length = 3.0f;
-			vector< Point3f > axisPoints;
+			float length = 2.0f;
+			vector<Point3f> axisPoints;
 			axisPoints.push_back(Point3f(0, 0, 0));
 			axisPoints.push_back(Point3f(length, 0, 0));
 			axisPoints.push_back(Point3f(0, length, 0));
@@ -184,30 +230,77 @@ namespace ComputeOnDevice
 			line(frame, imagePoints[0], imagePoints[3], Scalar(255, 0, 0), 3);
 
 			//Convert rotation vector into rotation matrix 
-			Mat a;
-			Rodrigues(rvec, a);
-
-			//float4x4 Rotation = float4x4(R.at<float>(0, 0), R.at<float>(0, 1), R.at<float>(0, 2), float(0.) , R.at<float>(1, 0), R.at<float>(1, 1), R.at<float>(1, 2), float(0.), R.at<float>(2, 0), R.at<float>(2, 1), R.at<float>(2, 2), float(0.), float(0.), float(0.), float(0.), float(1.));
-			//quaternion make_quaternion_from_rotation_matrix(Rotation);
+			Mat R;
+			Rodrigues(rvec, R);
 
 
-			float3 Chess_position_camera_space = (tvec.at<float>(0,0), tvec.at<float>(1,0), tvec.at<float>(2,0));
-			float3 Chess_position_world_space = transform(Chess_position_camera_space, FrameToOrigin);
+			vector<Point3f> testPoints;
+			vector< Point2f > imtestPoints;
+			testPoints.push_back(Point3f(0, 0, -2));
+			projectPoints(testPoints, rvec_cam, tvec_cam, cameraMatrix, distCoeffs, imtestPoints);
+
+			//float3 Chess_position_camera_space = 0.02f*(float(tvec.at<double>(0,0)), float(tvec.at<double>(1,0)), float(tvec.at<double>(2,0)));
+			//float4 ImagePosUnnormalized = mul(CameraProjectionTransform,float4(Chess_position_camera_space, 1); // use 1 as the W component
+
+
+			//Windows::Foundation::Point point_frame = cameraIntrinsics->ProjectOntoFrame(Chess_position_camera_space);
+			//Windows::Foundation::Point point_frame = cameraIntrinsics->ProjectOntoFrame(float3(0.0f, 1.0f, -3.0f));
+			
+			
+			//cv::Point2f final_point = (point_frame.X, point_frame.Y);
+
+			circle(frame, imtestPoints[0], 150, Scalar(1, 1, 1), 5);
+		
+			//float3 Chess_position_world_space = transform(Chess_position_camera_space, FrameToOrigin);
+
+			//create quaternion 
+
+			//const float4x4 Rotation = float4x4(R.at<float>(0, 0), R.at<float>(0, 1), R.at<float>(0, 2), float(0.) , R.at<float>(1, 0), R.at<float>(1, 1), R.at<float>(1, 2), float(0.), R.at<float>(2, 0), R.at<float>(2, 1), R.at<float>(2, 2), float(0.), float(0.), float(0.), float(0.), float(1.));
+		
+			//SpatialAnchor^ m_table_anchor = SpatialAnchor::TryCreateRelativeTo(CameraCoordinateSystem, Chess_position_camera_space);
+			
+			//quaternion orientation = make_quaternion_from_rotation_matrix(Rotation);
+
+			/*
+			quaternion orientationn = make_quaternion_from_axis_angle(float3(0, 0, 1), 0.5);
+
+			float w = float(std::sqrt(max(0.0, 1.0 + R.at<float>(0, 0) + R.at<float>(1, 1) + R.at<float>(2, 2))) * 0.5);
+			float x = float(std::sqrt(max(0.0, 1.0 + R.at<float>(0, 0) - R.at<float>(1, 1) - R.at<float>(2, 2))) * 0.5);
+			float y = float(std::sqrt(max(0.0, 1.0 - R.at<float>(0, 0) + R.at<float>(1, 1) - R.at<float>(2, 2))) * 0.5);
+			float z = float(std::sqrt(max(0.0, 1.0 - R.at<float>(0, 0) - R.at<float>(1, 1) + R.at<float>(2, 2))) * 0.5);
+			int resx;
+			int resy;
+			int resz;
+			sign(R.at<float>(2, 1) - R.at<float>(1, 2), resx);
+			x *= resx;
+			sign(R.at<float>(0, 2) - R.at<float>(2, 0),resy);
+			y *= resy;
+			sign(R.at<float>(1, 0) - R.at<float>(0, 1),resz);
+			z *= resz;
+
+			quaternion orientation = quaternion(x, y, z, w);
+
+			*/
 
 			// Create the anchor at position.
+			/*
 
-			SpatialAnchor^ m_table_anchor = SpatialAnchor::TryCreateRelativeTo(m_WorldCoordinateSystem, Chess_position_world_space);
+			SpatialAnchor^ m_table_anchor = SpatialAnchor::TryCreateRelativeTo(CameraCoordinateSystem, Chess_position_camera_space);
+			
+			if (m_table_anchor != nullptr)
+			{	
+				float4x4 WorldCoordinateSystemToAnchorSpace;
+				anchorSpace = m_table_anchor->CoordinateSystem;
+		
+				const auto tryTransform = m_WorldCoordinateSystem->TryGetTransformTo(anchorSpace);
+				if (tryTransform != nullptr)
+				{
+					WorldCoordinateSystemToAnchorSpace = tryTransform->Value;
+					_isPoolDetected = true;
+				}
+			}
 
-			//float4x4 anchorSpaceToCurrentCoordinateSystem;
-			//SpatialCoordinateSystem^ anchorSpace = table_anchor->CoordinateSystem;
-			//const auto tryTransform = anchorSpace->TryGetTransformTo(currentCoordinateSystem);
-			//if (tryTransform != nullptr)
-			//{
-			//anchorSpaceToCurrentCoordinateSystem = tryTransform->Value;
-			//}
-
-			_isPoolDetected = true;
-
+			*/
 		}
 
 	}
@@ -285,7 +378,8 @@ namespace ComputeOnDevice
 
 		//Get the camera transforms
 		Windows::Foundation::Numerics::float4x4 FrameToOrigin = latestFrame->FrameToOrigin;
-
+		Windows::Foundation::Numerics::float4x4 OriginToFrame = latestFrame->OriginToFrame;
+		Windows::Perception::Spatial::SpatialCoordinateSystem^ CameraCoordinateSystem = latestFrame->CameraCoordinateSystem;
 		Windows::Foundation::Numerics::float4x4 CameraViewTransform = latestFrame->CameraViewTransform;
 		Windows::Foundation::Numerics::float4x4 CameraProjectionTransform = latestFrame->CameraProjectionTransform;
 
@@ -310,6 +404,8 @@ namespace ComputeOnDevice
 
 		}
 
+
+
 		cv::Mat wrappedImage;
 
 		// WrapHoloLensSensorFrameWithCvMat defined in OpenCVHelpers 
@@ -321,13 +417,46 @@ namespace ComputeOnDevice
 			wrappedImage);
 
 
-		//if (_isPoolDetected==false)
+		//if (_isPoolDetected == false)
 		//	{
-		//	DetectPoolTable(wrappedImage, cameraMatrix, distCoeffs, FrameToOrigin);
+		//	DetectPoolTable(wrappedImage, cameraMatrix, distCoeffs, CameraCoordinateSystem, cameraIntrinsics);
 		//	}
 
-		DetectPoolTable(wrappedImage, cameraMatrix, distCoeffs, FrameToOrigin);
+		DetectPoolTable(wrappedImage, CameraCoordinateSystem, cameraIntrinsics, CameraViewTransform);
 
+		/*
+		if (_isPoolDetected == true)
+		{
+			const auto tryTransform = anchorSpace->TryGetTransformTo(CameraCoordinateSystem);
+			const auto tryTransform2 = anchorSpace->TryGetTransformTo(m_WorldCoordinateSystem);
+
+			if (tryTransform != nullptr)
+			{
+				float4x4 AnchorSpaceToCameraCoordinateSystem;
+				AnchorSpaceToCameraCoordinateSystem = tryTransform->Value;
+				float3 point_anchor = (float(0.), float(0.), float(0.));
+				float3 point_camera = transform(point_anchor, AnchorSpaceToCameraCoordinateSystem);
+				Windows::Foundation::Point point_frame = cameraIntrinsics->ProjectOntoFrame(point_camera);
+				cv::Point2f final_point = (point_frame.X, point_frame.Y);
+				circle(wrappedImage, final_point, 20, Scalar(100, 200, 1), 5);
+			}
+
+			else
+			{
+				float4x4 AnchorSpaceToWorldCoordinateSystem;
+				AnchorSpaceToWorldCoordinateSystem = tryTransform2->Value;
+				float3 point_anchor = (float(0.), float(0.), float(0.));
+				float3 point_world = transform(point_anchor, AnchorSpaceToWorldCoordinateSystem);
+				float3 point_camera = transform(point_world, OriginToFrame);
+				Windows::Foundation::Point point_frame = cameraIntrinsics->ProjectOntoFrame(point_camera);
+				cv::Point2f final_point = (point_frame.X, point_frame.Y);
+				circle(wrappedImage, final_point, 20, Scalar(100, 200, 1), 5);
+			}
+
+		}
+		*/
+		
+		/*
 
 		if (!_undistortMapsInitialized)
 		{
@@ -378,17 +507,19 @@ namespace ComputeOnDevice
 				cv::INTER_AREA);
 		}
 
+		*/
 
-
-
-
-		//Mat frame = _resizedPVCameraImage;
+		Mat frame = wrappedImage;
+		
+		if (_isPoolDetected == false)
+		{
+			cv::blur(frame, frame, cv::Size(20, 20));
+		}
 
 		/*
 
 		Mat HSVframe;
 		vector<Mat> channels(3);
-
 
 		cv::blur(frame, frame, cv::Size(5, 5));
 
@@ -461,21 +592,6 @@ namespace ComputeOnDevice
 
 		/*
 
-		// Create the anchor at position.
-		const float3 anchorposition = float3{ 0.5f, 0.5f, 0.0f };
-		SpatialAnchor^ table_anchor = SpatialAnchor::TryCreateRelativeTo(cameraCoordinateSystem, anchorposition);
-
-		float4x4 anchorSpaceToCurrentCoordinateSystem;
-		SpatialCoordinateSystem^ anchorSpace = table_anchor->CoordinateSystem;
-		const auto tryTransform = anchorSpace->TryGetTransformTo(currentCoordinateSystem);
-		if (tryTransform != nullptr)
-		{
-		anchorSpaceToCurrentCoordinateSystem = tryTransform->Value;
-		}
-
-
-
-
 
 		//Blurs the image using the median filter with the ksize�ksize aperture
 		cv::medianBlur(
@@ -483,17 +599,12 @@ namespace ComputeOnDevice
 		_blurredPVCameraImage,
 		3);
 
-
-		//Finds edges in an image using the Canny a lgorithm
+		//Finds edges in an image using the Canny algorithm
 		cv::Canny(
 		_blurredPVCameraImage,
 		_cannyPVCameraImage,
 		50.0,
 		200.0);
-
-
-
-
 
 		//For each pxel of the edge map, if the pixel value is > 64, color the
 		//corresponding pixel in blurredPVCameraImage
@@ -532,7 +643,6 @@ namespace ComputeOnDevice
 
 		//without using  class
 
-
 		std::vector<cv::Vec4i> lines;
 		cv::HoughLinesP(_cannyPVCameraImage, lines, 1, 3*3.14159 / 180, 70, 50, 80);
 
@@ -554,9 +664,11 @@ namespace ComputeOnDevice
 
 		//Update 2D texture to suit with blurredPVCameraImage
 
+
+
 		OpenCVHelpers::CreateOrUpdateTexture2D(
 			_deviceResources,
-			_resizedPVCameraImage,
+			frame,
 			_currentVisualizationTexture);
 
 		//SpatialPointerPose^ pointerPose = SpatialPointerPose::TryGetAtTimestamp(currentCoordinateSystem, prediction->Timestamp);
