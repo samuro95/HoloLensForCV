@@ -206,8 +206,7 @@ namespace ComputeOnDevice
 			image_points.push_back(corners);
 			object_points.push_back(obj);
 
-			Mat rvec;
-			Mat tvec;
+	
 			vector<Point3f> object_point = object_points[0];
 			vector<Point2f> image_point = image_points[0];
 
