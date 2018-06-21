@@ -126,7 +126,7 @@ namespace ComputeOnDevice
 	}
 
 
-	void AppMain::DetectPoolTable(Mat frame, SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Foundation::Numerics::float4x4 CameraViewTransform)
+	void AppMain::DetectPoolTable(Mat frame, SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, float4x4 CameraViewTransform)
 	{
 
 		//Use ChessBoardDetection to detect a corner and set a coordinate system linked with the plan of the pool table
@@ -234,22 +234,25 @@ namespace ComputeOnDevice
 			Rodrigues(rvec, R);
 
 
-			vector<Point3f> testPoints;
-			vector< Point2f > imtestPoints;
-			testPoints.push_back(Point3f(0, 0, 2));
-			projectPoints(testPoints, rvec_cam, tvec_cam, cameraMatrix, distCoeffs, imtestPoints);
+			//vector<Point3f> spacePoints;
+			//vector<Point2f> imPoints;
 
-			//float3 Chess_position_camera_space = 0.02f*(float(tvec.at<double>(0,0)), float(tvec.at<double>(1,0)), float(tvec.at<double>(2,0)));
+			//Point3f Chess_position_camera_space = (float(tvec.at<double>(0, 0)), float(tvec.at<double>(1, 0)), float(tvec.at<double>(2, 0)));
+
+			//spacePoints.push_back(Chess_position_camera_space);
+			//rojectPoints(spacePoints, rvec_cam, tvec_cam, cameraMatrix, distCoeffs, imPoints);
+
+			float3 Chess_position_camera_space = 0.02f*(float(tvec.at<double>(0,0)), float(tvec.at<double>(1,0)), -float(tvec.at<double>(2,0)));
 			//float4 ImagePosUnnormalized = mul(CameraProjectionTransform,float4(Chess_position_camera_space, 1); // use 1 as the W component
 
 
-			//Windows::Foundation::Point point_frame = cameraIntrinsics->ProjectOntoFrame(Chess_position_camera_space);
+			Windows::Foundation::Point point_frame = cameraIntrinsics->ProjectOntoFrame(Chess_position_camera_space);
 			//Windows::Foundation::Point point_frame = cameraIntrinsics->ProjectOntoFrame(float3(0.0f, 1.0f, -3.0f));
 			
 			
-			//cv::Point2f final_point = (point_frame.X, point_frame.Y);
+			cv::Point2f final_point = (point_frame.X, point_frame.Y);
 
-			circle(frame, imtestPoints[0], 150, Scalar(1, 1, 1), 5);
+			circle(frame, final_point, 150, Scalar(1, 1, 1), 5);
 		
 			//float3 Chess_position_world_space = transform(Chess_position_camera_space, FrameToOrigin);
 
@@ -511,10 +514,10 @@ namespace ComputeOnDevice
 
 		Mat frame = wrappedImage;
 		
-		if (_isPoolDetected == false)
-		{
-			cv::blur(frame, frame, cv::Size(20, 20));
-		}
+		//if (_isPoolDetected == false)
+		//{
+		//	cv::blur(frame, frame, cv::Size(20, 20));
+		//}
 
 		/*
 
