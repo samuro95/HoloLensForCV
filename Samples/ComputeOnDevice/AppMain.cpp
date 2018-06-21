@@ -233,25 +233,29 @@ namespace ComputeOnDevice
 			Rodrigues(rvec, R);
 
 
-			//vector<Point3f> spacePoints;
-			//vector<Point2f> imPoints;
+			vector<Point3f> spacePoints;
+			vector<Point2f> imPoints;
 
-			//Point3f Chess_position_camera_space = (float(tvec.at<double>(0, 0)), float(tvec.at<double>(1, 0)), float(tvec.at<double>(2, 0)));
+			Point3f Chess_position_camera_space = 0.02f*(float(tvec.at<double>(0, 0)), float(tvec.at<double>(1, 0)), -float(tvec.at<double>(2, 0)));
+			Point3f Chess_position_camera_space2 = (0.0f, 0.0f,-2.0f);
 
-			//spacePoints.push_back(Chess_position_camera_space);
-			//rojectPoints(spacePoints, rvec_cam, tvec_cam, cameraMatrix, distCoeffs, imPoints);
+			spacePoints.push_back(Chess_position_camera_space);
+			spacePoints.push_back(Chess_position_camera_space2);
+			projectPoints(spacePoints, rvec_cam, tvec_cam, cameraMatrix, distCoeffs, imPoints);
+			circle(frame, imPoints[0], 50, Scalar(1, 1, 1), 5);
+			circle(frame, imPoints[1], 50, Scalar(100, 100, 100), 5);
 
-			float3 Chess_position_camera_space = 0.02f*(float(tvec.at<double>(0,0)), float(tvec.at<double>(1,0)), -float(tvec.at<double>(2,0)));
+			//float3 Chess_position_camera_space = 0.02f*(float(tvec.at<double>(0,0)), float(tvec.at<double>(1,0)), float(tvec.at<double>(2,0)));
 			//float4 ImagePosUnnormalized = mul(CameraProjectionTransform,float4(Chess_position_camera_space, 1); // use 1 as the W component
 
 
-			Windows::Foundation::Point point_frame = cameraIntrinsics->ProjectOntoFrame(Chess_position_camera_space);
+			//Windows::Foundation::Point point_frame = cameraIntrinsics->ProjectOntoFrame(Chess_position_camera_space);
 			//Windows::Foundation::Point point_frame = cameraIntrinsics->ProjectOntoFrame(float3(0.0f, 1.0f, -3.0f));
 			
 			
-			cv::Point2f final_point = (point_frame.X, point_frame.Y);
+			//cv::Point2f final_point = (point_frame.X, point_frame.Y);
 
-			circle(frame, final_point, 150, Scalar(1, 1, 1), 5);
+			//circle(frame, final_point, 150, Scalar(1, 1, 1), 5);
 		
 			//float3 Chess_position_world_space = transform(Chess_position_camera_space, FrameToOrigin);
 
@@ -427,11 +431,11 @@ namespace ComputeOnDevice
 		Mat tvec;
 		DetectPoolTable(wrappedImage, CameraCoordinateSystem, cameraIntrinsics, CameraViewTransform,rvec,tvec);
 
-		vector<Point3f> axisPoints;
-		axisPoints.push_back(Point3f(20, 20, 20));
-		vector< Point2f > imagePoints;
-		projectPoints(axisPoints, rvec, tvec, cameraMatrix, distCoeffs, imagePoints);
-		circle(wrappedImage, imagePoints[0], 10, Scalar(1, 1, 1), 3);
+		//vector<Point3f> axisPoints;
+		//axisPoints.push_back(Point3f(20, 20, 20));
+		//vector< Point2f > imagePoints;
+		//projectPoints(axisPoints, rvec, tvec, cameraMatrix, distCoeffs, imagePoints);
+		//circle(wrappedImage, imagePoints[0], 10, Scalar(1, 1, 1), 3);
 
 		/*
 		if (_isPoolDetected == true)
