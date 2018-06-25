@@ -126,7 +126,7 @@ namespace ComputeOnDevice
 	}
 
 
-	void AppMain::DetectPoolTable(Mat frame, SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Foundation::Numerics::float4x4 CameraViewTransform, _Out_ Mat rvec, Mat tvec)
+	void AppMain::DetectPoolTable(Mat frame, SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Foundation::Numerics::float4x4 CameraViewTransform)
 	{
 
 		//Use ChessBoardDetection to detect a corner and set a coordinate system linked with the plan of the pool table
@@ -211,6 +211,8 @@ namespace ComputeOnDevice
 			vector<Point2f> image_point = image_points[0];
 
 			//calibrateCamera(object_points, image_points, image.size(), intrinsic, distCoeffs, rvecs, tvecs);
+			Mat rvec;
+			Mat tvec;
 			solvePnP(object_point, image_point, cameraMatrix, distCoeffs, rvec, tvec);
 
 			//draw axis 
@@ -222,6 +224,7 @@ namespace ComputeOnDevice
 			axisPoints.push_back(Point3f(0, 0, length));
 			vector< Point2f > imagePoints;
 			projectPoints(axisPoints, rvec, tvec, cameraMatrix, distCoeffs, imagePoints);
+
 
 			// draw axis lines
 			line(frame, imagePoints[0], imagePoints[1], Scalar(0, 0, 255), 3);
@@ -236,117 +239,185 @@ namespace ComputeOnDevice
 			vector<Point3f> spacePoints;
 			vector<Point2f> imPoints;
 
-			float tvecX = float(tvec.at<double>(0, 0));
-			float tvecY = float(tvec.at<double>(1, 0));
-			float tvecZ = float(tvec.at<double>(2, 0));
+			double square_size = 0.029;
 
+			double x = tvec.at<double>(0, 0)*square_size;
+			double y = tvec.at<double>(1, 0)*square_size;
+			double z = tvec.at<double>(2, 0)*square_size;
 
-			Point3f Chess_position_camera_view_space = (tvecX, tvecY, tvecZ);
-			float3 Chess_position_camera_view_space2 = (tvecX, tvecY, tvecZ);
-			//Windows::Foundation::Point point_frame = cameraIntrinsics->ProjectOntoFrame(Chess_position_camera_view_space2);
+			float3 Chess_position_camera_space = (float(x), float(y), float(z));
 
-			//Windows::Foundation::Point point_frame = (point_frame.X, point_frame.Y);
+			vector<Point3f> spaceP;
+			spaceP.push_back(Point3f(float(x), float(y), float(z)));
+			vector< Point2f > imageP;
 
+			Mat tvec_0(3, 1, CV_64F, double(0)); // translation vector extrisics camera 
+			Mat R_0(3, 3, CV_64F); //rotation vector extrisics camera 
+			cv::setIdentity(R_0);
+			projectPoints(spaceP, R_0, tvec_0, cameraMatrix, distCoeffs, imageP);
 			
-			cv::Point2f final_point = (float(cameraIntrinsics->FocalLength.y*0.032*tvecX / 0.032*tvecZ + cameraIntrinsics->PrincipalPoint.x), float(cameraIntrinsics->FocalLength.y*0.032*tvecY / 0.032*tvecZ + cameraIntrinsics->PrincipalPoint.y));
-			cv::Point2f final_point2 = (0.f, 0.f);
-			circle(frame, final_point, 150, Scalar(1, 1, 1), 5);
-			circle(frame, final_point2, 100, Scalar(100, 100, 100), 5);
+			//cv::Point2f final_point = (float(x), float(y));
+			cv::Point2f final_point = imageP[0];
+			cv::Point2f center_point = imagePoints[0];
 
+			circle(frame, final_point, 30, Scalar(1, 1, 1), 3);
 
-			//float3 Chess_position_camera_space = transform(Chess_position_camera_view_space, ViewToCam);
+			double dist = pow(center_point.x - final_point.x, 2) + pow(center_point.y - final_point.y, 2);
 
-
-			//if (0.02*tvec.at<double>(2, 0)<1.)
-			//	cv::blur(frame, frame, cv::Size(20, 20));
-
-			//Point3f Chess_position_camera_space2 = (0.0f, 0.0f,-5.0f);
-
-			//spacePoints.push_back(Chess_position_camera_view_space);
-			//spacePoints.push_back(Chess_position_camera_space2);
-			//projectPoints(spacePoints, rvec_cam, tvec_cam, cameraMatrix, distCoeffs, imPoints);
-			//circle(frame, imPoints[0], 50, Scalar(1, 1, 1), 5);
-			//circle(frame, imPoints[1], 50, Scalar(100, 100, 100), 5);
-
-
-
-
-			//float3 Chess_position_camera_space = 0.02f*(float(tvec.at<double>(0,0)), float(tvec.at<double>(1,0)), float(tvec.at<double>(2,0)));
-			//float4 ImagePosUnnormalized = mul(CameraProjectionTransform,float4(Chess_position_camera_space, 1); // use 1 as the W component
-
+			double dist_max = (0.01*cameraIntrinsics->FocalLength.x)*(0.01*cameraIntrinsics->FocalLength.y);
 			
-			//Windows::Foundation::Point point_frame = cameraIntrinsics->ProjectOntoFrame((0.f, 0.f, -4.f));
+			if (dist < dist_max)
+			{ 
+				//create quaternion 
 
-			//int width = frame.cols;
-			//int height = frame.rows;
-
-			//cv::Point2f final_point = (point_frame.X, point_frame.Y);
-			//cv::Point2f final_point = (0.0f, 0.0f);
-
-			//circle(frame, final_point, 150, Scalar(1, 1, 1), 5);
+				const float4x4 Rotation = float4x4(R.at<float>(0, 0), R.at<float>(0, 1), R.at<float>(0, 2), float(0.) , R.at<float>(1, 0), R.at<float>(1, 1), R.at<float>(1, 2), float(0.), R.at<float>(2, 0), R.at<float>(2, 1), R.at<float>(2, 2), float(0.), float(0.), float(0.), float(0.), float(1.));
 		
-			//float3 Chess_position_world_space = transform(Chess_position_camera_space, FrameToOrigin);
-
-			//create quaternion 
-
-			//const float4x4 Rotation = float4x4(R.at<float>(0, 0), R.at<float>(0, 1), R.at<float>(0, 2), float(0.) , R.at<float>(1, 0), R.at<float>(1, 1), R.at<float>(1, 2), float(0.), R.at<float>(2, 0), R.at<float>(2, 1), R.at<float>(2, 2), float(0.), float(0.), float(0.), float(0.), float(1.));
-		
-			//SpatialAnchor^ m_table_anchor = SpatialAnchor::TryCreateRelativeTo(CameraCoordinateSystem, Chess_position_camera_space);
+				//SpatialAnchor^ m_table_anchor = SpatialAnchor::TryCreateRelativeTo(CameraCoordinateSystem, Chess_position_camera_space);
 			
-			//quaternion orientation = make_quaternion_from_rotation_matrix(Rotation);
 
-			/*
-			quaternion orientationn = make_quaternion_from_axis_angle(float3(0, 0, 1), 0.5);
+				/*
+				quaternion orientationn = make_quaternion_from_axis_angle(float3(0, 0, 1), 0.5);
 
-			float w = float(std::sqrt(max(0.0, 1.0 + R.at<float>(0, 0) + R.at<float>(1, 1) + R.at<float>(2, 2))) * 0.5);
-			float x = float(std::sqrt(max(0.0, 1.0 + R.at<float>(0, 0) - R.at<float>(1, 1) - R.at<float>(2, 2))) * 0.5);
-			float y = float(std::sqrt(max(0.0, 1.0 - R.at<float>(0, 0) + R.at<float>(1, 1) - R.at<float>(2, 2))) * 0.5);
-			float z = float(std::sqrt(max(0.0, 1.0 - R.at<float>(0, 0) - R.at<float>(1, 1) + R.at<float>(2, 2))) * 0.5);
-			int resx;
-			int resy;
-			int resz;
-			sign(R.at<float>(2, 1) - R.at<float>(1, 2), resx);
-			x *= resx;
-			sign(R.at<float>(0, 2) - R.at<float>(2, 0),resy);
-			y *= resy;
-			sign(R.at<float>(1, 0) - R.at<float>(0, 1),resz);
-			z *= resz;
+				float w = float(std::sqrt(max(0.0, 1.0 + R.at<float>(0, 0) + R.at<float>(1, 1) + R.at<float>(2, 2))) * 0.5);
+				float x = float(std::sqrt(max(0.0, 1.0 + R.at<float>(0, 0) - R.at<float>(1, 1) - R.at<float>(2, 2))) * 0.5);
+				float y = float(std::sqrt(max(0.0, 1.0 - R.at<float>(0, 0) + R.at<float>(1, 1) - R.at<float>(2, 2))) * 0.5);
+				float z = float(std::sqrt(max(0.0, 1.0 - R.at<float>(0, 0) - R.at<float>(1, 1) + R.at<float>(2, 2))) * 0.5);
 
-			quaternion orientation = quaternion(x, y, z, w);
+				int resx;
+				int resy;
+				int resz;
+				sign(R.at<float>(2, 1) - R.at<float>(1, 2), resx);
+				x *= resx;
+				sign(R.at<float>(0, 2) - R.at<float>(2, 0),resy);
+				y *= resy;
+				sign(R.at<float>(1, 0) - R.at<float>(0, 1),resz);
+				z *= resz;
 
-			*/
+				quaternion orientation = quaternion(x, y, z, w);
 
-			// Create the anchor at position.
-			/*
+				*/
+				
+				// Create the anchor at position.
 
-			SpatialAnchor^ m_table_anchor = SpatialAnchor::TryCreateRelativeTo(CameraCoordinateSystem, Chess_position_camera_space);
-			
-			if (m_table_anchor != nullptr)
-			{	
-				float4x4 WorldCoordinateSystemToAnchorSpace;
-				anchorSpace = m_table_anchor->CoordinateSystem;
-		
-				const auto tryTransform = m_WorldCoordinateSystem->TryGetTransformTo(anchorSpace);
-				if (tryTransform != nullptr)
+				Mat Rot;
+				Mat R_cam_inv;
+				transpose(R_cam, R_cam_inv);
+				Rot = R + R_cam_inv;
+
+				double sy = sqrt(R.at<double>(0, 0) * Rot.at<double>(0, 0) + Rot.at<double>(1, 0) * Rot.at<double>(1, 0));
+
+				bool singular = sy < 1e-6; // If
+
+				double a, b, c;
+				if (!singular)
 				{
-					WorldCoordinateSystemToAnchorSpace = tryTransform->Value;
-					_isPoolDetected = true;
+					a = atan2(Rot.at<double>(2, 1), Rot.at<double>(2, 2));
+					b = atan2(-Rot.at<double>(2, 0), sy);
+					c = atan2(Rot.at<double>(1, 0), Rot.at<double>(0, 0));
 				}
-			}
+				else
+				{
+					a = atan2(-Rot.at<double>(1, 2), Rot.at<double>(1, 1));
+					b = atan2(-Rot.at<double>(2, 0), sy);
+					c = 0;
+				}
 
-			*/
+
+
+				quaternion orientation = make_quaternion_from_yaw_pitch_roll(float(a), float(b), float(c));
+
+				SpatialAnchor^ m_table_anchor = SpatialAnchor::TryCreateRelativeTo(CameraCoordinateSystem, Chess_position_camera_space, orientation);
+				
+
+				if (m_table_anchor != nullptr)
+				{	
+		
+					anchorSpace = m_table_anchor->CoordinateSystem;
+		
+					const auto tryTransform = m_WorldCoordinateSystem->TryGetTransformTo(anchorSpace);
+					if (tryTransform != nullptr)
+					{
+						WorldCoordinateSystemToAnchorSpace = tryTransform->Value;
+						_isPoolDetected = true;
+					}
+				}
+
+			}
 		}
 
 	}
 
-	/*
-	void AppMain::ProcessBalls(frame,)
-	*/
+	
+	void AppMain::ProcessBalls(Mat frame)
+	{
 
+		Mat HSVframe;
+		vector<Mat> channels(3);
 
+		cv::blur(frame, frame, cv::Size(5, 5));
 
+		cv::cvtColor(frame, HSVframe, CV_BGR2HSV);
+		cv::split(HSVframe, channels);
+		Mat hframe;
+		hframe = channels[0];
 
+		//calculate mean Hue channel
+		Scalar tempval = mean(hframe);
+		double Hmean = tempval.val[0];
 
+		//threshold on the Hue channel
+		double minthres = Hmean - 10;
+		double maxthres = Hmean + 10;
+		Scalar mintable = { minthres,0,0 };
+		Scalar maxtable = { maxthres,255,255 };
+		Mat threshold;
+		cv::inRange(HSVframe, mintable, maxtable, threshold);
+
+		// Create a structuring element
+		int erosion_size = 4;
+		Mat element = getStructuringElement(cv::MORPH_CROSS,
+			cv::Size(2 * erosion_size + 1, 2 * erosion_size + 1),
+			cv::Point(erosion_size, erosion_size));
+
+		// Apply erosion or dilation on the image
+		cv::erode(threshold, threshold, element);
+		cv::dilate(threshold, threshold, element);
+
+		//Detect contours avec FindContours
+		vector<vector<cv::Point> > contours;
+		vector<Vec4i> hierarchy;
+		cv::findContours(threshold, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
+
+		vector<vector<cv::Point> > contours_poly(contours.size());
+		vector<Point2f>center(contours.size());
+		vector<float>radius(contours.size());
+		int maxRadius = 60;
+		int MinRadius = 8;
+		Scalar color_ball = Scalar(255, 255, 255);
+		Scalar color_table = Scalar(100, 10, 10);
+		Mat drawing = Mat::zeros(hframe.size(), CV_8UC1);
+		vector<vector<cv::Point>>hull(contours.size());
+		double largest_area = 0;
+		int largest_contour_index = 0;
+
+		for (size_t i = 0; i < contours.size(); i++) {
+			convexHull(Mat(contours[i]), hull[i]);
+			approxPolyDP(hull[i], contours_poly[i], 3, true);
+			minEnclosingCircle(contours_poly[i], center[i], radius[i]);
+			double rad = radius[i];
+			double area = contourArea(hull[i], false);
+			if (area > largest_area) {
+				largest_area = area;
+				largest_contour_index = i;
+			}
+			if (rad<maxRadius && rad>MinRadius) {
+				//drawContours( drawing, contours_poly, i, color, 1, 8, vector<Vec4i>(), 0,Point() );
+				//circle(drawing, center[i], (int)radius[i], color_ball, 2, 8, 0 );
+				circle(frame, center[i], (int)radius[i], color_ball, 2, 8, 0);
+			}
+		}
+
+	}
 
 	void AppMain::OnUpdate(
 		_In_ Windows::Graphics::Holographic::HolographicFrame^ holographicFrame,
@@ -424,7 +495,9 @@ namespace ComputeOnDevice
 		Windows::Perception::Spatial::SpatialCoordinateSystem^ CameraCoordinateSystem = latestFrame->CameraCoordinateSystem;
 		Windows::Foundation::Numerics::float4x4 CameraViewTransform = latestFrame->CameraViewTransform;
 		const Windows::Foundation::Numerics::float4x4 CameraProjectionTransform = latestFrame->CameraProjectionTransform;
-		//indows::Foundation::Numerics::float4x4 ViewToCam;
+
+
+
 
 		
 
@@ -461,20 +534,14 @@ namespace ComputeOnDevice
 			latestFrame,
 			wrappedImage);
 
+		
 
-		//if (_isPoolDetected == false)
-		//	{
-		//	DetectPoolTable(wrappedImage, cameraMatrix, distCoeffs, CameraCoordinateSystem, cameraIntrinsics);
-		//	}
-		Mat rvec;
-		Mat tvec;
-		DetectPoolTable(wrappedImage, CameraCoordinateSystem, cameraIntrinsics, CameraViewTransform,rvec,tvec);
+		if (_isPoolDetected == false)
+			{
+			DetectPoolTable(wrappedImage, CameraCoordinateSystem, cameraIntrinsics, CameraViewTransform);
+			}
 
-		//vector<Point3f> axisPoints;
-		//axisPoints.push_back(Point3f(20, 20, 20));
-		//vector< Point2f > imagePoints;
-		//projectPoints(axisPoints, rvec, tvec, cameraMatrix, distCoeffs, imagePoints);
-		//circle(wrappedImage, imagePoints[0], 10, Scalar(1, 1, 1), 3);
+
 
 		/*
 		if (_isPoolDetected == true)
@@ -508,7 +575,7 @@ namespace ComputeOnDevice
 		}
 		*/
 		
-		
+		/*
 
 		if (!_undistortMapsInitialized)
 		{
@@ -559,82 +626,24 @@ namespace ComputeOnDevice
 				cv::INTER_AREA);
 		}
 
-		
+		*/
 
 		Mat frame = wrappedImage;
 		
-		//if (_isPoolDetected == false)
-		//{
-		//	cv::blur(frame, frame, cv::Size(20, 20));
-		//}
+		if (_isPoolDetected == false)
+		{
+			cv::blur(frame, frame, cv::Size(20, 20));
+		}
+		else
+		{
+
+			ProcessBalls(frame);
+
+		}
 
 		/*
 
-		Mat HSVframe;
-		vector<Mat> channels(3);
-
-		cv::blur(frame, frame, cv::Size(5, 5));
-
-		cv::cvtColor(frame, HSVframe, CV_BGR2HSV);
-		cv::split(HSVframe, channels);
-		Mat hframe;
-		hframe = channels[0];
-
-		//calculate mean Hue channel
-		Scalar tempval = mean(hframe);
-		double Hmean = tempval.val[0];
-
-		//threshold on the Hue channel
-		double minthres = Hmean - 10;
-		double maxthres = Hmean + 10;
-		Scalar mintable = { minthres,0,0 };
-		Scalar maxtable = { maxthres,255,255 };
-		Mat threshold;
-		cv::inRange(HSVframe, mintable, maxtable, threshold);
-
-		// Create a structuring element
-		int erosion_size = 4;
-		Mat element = getStructuringElement(cv::MORPH_CROSS,
-		cv::Size(2 * erosion_size + 1, 2 * erosion_size + 1),
-		cv::Point(erosion_size, erosion_size));
-
-		// Apply erosion or dilation on the image
-		cv::erode(threshold, threshold, element);
-		cv::dilate(threshold, threshold, element);
-
-		//Detect contours avec FindContours
-		vector<vector<cv::Point> > contours;
-		vector<Vec4i> hierarchy;
-		cv::findContours(threshold, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
-
-		vector<vector<cv::Point> > contours_poly(contours.size());
-		vector<Point2f>center(contours.size());
-		vector<float>radius(contours.size());
-		int maxRadius = 60;
-		int MinRadius = 8;
-		Scalar color_ball = Scalar(255, 255, 255);
-		Scalar color_table = Scalar(100, 10, 10);
-		Mat drawing = Mat::zeros(hframe.size(), CV_8UC1);
-		vector<vector<cv::Point>>hull(contours.size());
-		double largest_area = 0;
-		int largest_contour_index = 0;
-
-		for (size_t i = 0; i < contours.size(); i++) {
-		convexHull(Mat(contours[i]), hull[i]);
-		approxPolyDP(hull[i], contours_poly[i], 3, true);
-		minEnclosingCircle(contours_poly[i], center[i], radius[i]);
-		double rad = radius[i];
-		double area = contourArea(hull[i], false);
-		if (area > largest_area) {
-		largest_area = area;
-		largest_contour_index = i;
-		}
-		if (rad<maxRadius && rad>MinRadius) {
-		//drawContours( drawing, contours_poly, i, color, 1, 8, vector<Vec4i>(), 0,Point() );
-		//circle(drawing, center[i], (int)radius[i], color_ball, 2, 8, 0 );
-		circle(frame, center[i], (int)radius[i], color_ball, 2, 8, 0);
-		}
-		}
+		
 
 		drawContours(frame, hull, largest_contour_index, color_table, 3, 8, vector<Vec4i>(), 0, cv::Point());
 		//drawContours(drawing, hull, largest_contour_index, Scalar(255), 3, 8, vector<Vec4i>(), 0, cv::Point());

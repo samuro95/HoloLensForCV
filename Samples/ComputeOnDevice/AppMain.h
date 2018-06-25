@@ -92,7 +92,9 @@ namespace ComputeOnDevice
 
 		Windows::Perception::Spatial::SpatialCoordinateSystem^ m_WorldCoordinateSystem;
 
-        void DetectPoolTable(_In_ cv::Mat frame, Windows::Perception::Spatial::SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Foundation::Numerics::float4x4 CameraViewTransform,  _Out_ cv::Mat rvec, cv::Mat tvec);
+        void DetectPoolTable(_In_ cv::Mat frame, Windows::Perception::Spatial::SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Foundation::Numerics::float4x4 CameraViewTransform);
+
+		void ProcessBalls(cv::Mat frame);
 
 		void sign(_In_ float x, _Out_ int res);
 
@@ -107,6 +109,8 @@ namespace ComputeOnDevice
 		Microsoft::WRL::ComPtr<ID3D11PixelShader>						 m_pixelShaderRGB;
 
 		Windows::Perception::Spatial::SpatialCoordinateSystem^ anchorSpace;
+
+		Windows::Foundation::Numerics::float4x4 WorldCoordinateSystemToAnchorSpace;
 		
 	};
 }
