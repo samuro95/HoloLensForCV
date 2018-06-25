@@ -126,7 +126,7 @@ namespace ComputeOnDevice
 	}
 
 
-	void AppMain::DetectPoolTable(Mat frame, SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, float4x4 CameraViewTransform, _Out_ Mat rvec, Mat tvec)
+	void AppMain::DetectPoolTable(Mat frame, SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Foundation::Numerics::float4x4 CameraViewTransform, _Out_ Mat rvec, Mat tvec)
 	{
 
 		//Use ChessBoardDetection to detect a corner and set a coordinate system linked with the plan of the pool table
@@ -228,32 +228,60 @@ namespace ComputeOnDevice
 			line(frame, imagePoints[0], imagePoints[2], Scalar(0, 255, 0), 3);
 			line(frame, imagePoints[0], imagePoints[3], Scalar(255, 0, 0), 3);
 
+			
 			//Convert rotation vector into rotation matrix 
 			Mat R;
 			Rodrigues(rvec, R);
 
-
 			vector<Point3f> spacePoints;
 			vector<Point2f> imPoints;
 
-			Point3f Chess_position_camera_space = 0.02f*(float(tvec.at<double>(0, 0)), float(tvec.at<double>(1, 0)), -float(tvec.at<double>(2, 0)));
-			Point3f Chess_position_camera_space2 = (0.0f, 0.0f,-2.0f);
+			float tvecX = float(tvec.at<double>(0, 0));
+			float tvecY = float(tvec.at<double>(1, 0));
+			float tvecZ = float(tvec.at<double>(2, 0));
 
-			spacePoints.push_back(Chess_position_camera_space);
-			spacePoints.push_back(Chess_position_camera_space2);
-			projectPoints(spacePoints, rvec_cam, tvec_cam, cameraMatrix, distCoeffs, imPoints);
-			circle(frame, imPoints[0], 50, Scalar(1, 1, 1), 5);
-			circle(frame, imPoints[1], 50, Scalar(100, 100, 100), 5);
+
+			Point3f Chess_position_camera_view_space = (tvecX, tvecY, tvecZ);
+			float3 Chess_position_camera_view_space2 = (tvecX, tvecY, tvecZ);
+			//Windows::Foundation::Point point_frame = cameraIntrinsics->ProjectOntoFrame(Chess_position_camera_view_space2);
+
+			//Windows::Foundation::Point point_frame = (point_frame.X, point_frame.Y);
+
+			
+			cv::Point2f final_point = (float(cameraIntrinsics->FocalLength.y*0.032*tvecX / 0.032*tvecZ + cameraIntrinsics->PrincipalPoint.x), float(cameraIntrinsics->FocalLength.y*0.032*tvecY / 0.032*tvecZ + cameraIntrinsics->PrincipalPoint.y));
+			cv::Point2f final_point2 = (0.f, 0.f);
+			circle(frame, final_point, 150, Scalar(1, 1, 1), 5);
+			circle(frame, final_point2, 100, Scalar(100, 100, 100), 5);
+
+
+			//float3 Chess_position_camera_space = transform(Chess_position_camera_view_space, ViewToCam);
+
+
+			//if (0.02*tvec.at<double>(2, 0)<1.)
+			//	cv::blur(frame, frame, cv::Size(20, 20));
+
+			//Point3f Chess_position_camera_space2 = (0.0f, 0.0f,-5.0f);
+
+			//spacePoints.push_back(Chess_position_camera_view_space);
+			//spacePoints.push_back(Chess_position_camera_space2);
+			//projectPoints(spacePoints, rvec_cam, tvec_cam, cameraMatrix, distCoeffs, imPoints);
+			//circle(frame, imPoints[0], 50, Scalar(1, 1, 1), 5);
+			//circle(frame, imPoints[1], 50, Scalar(100, 100, 100), 5);
+
+
+
 
 			//float3 Chess_position_camera_space = 0.02f*(float(tvec.at<double>(0,0)), float(tvec.at<double>(1,0)), float(tvec.at<double>(2,0)));
 			//float4 ImagePosUnnormalized = mul(CameraProjectionTransform,float4(Chess_position_camera_space, 1); // use 1 as the W component
 
+			
+			//Windows::Foundation::Point point_frame = cameraIntrinsics->ProjectOntoFrame((0.f, 0.f, -4.f));
 
-			//Windows::Foundation::Point point_frame = cameraIntrinsics->ProjectOntoFrame(Chess_position_camera_space);
-			//Windows::Foundation::Point point_frame = cameraIntrinsics->ProjectOntoFrame(float3(0.0f, 1.0f, -3.0f));
-			
-			
+			//int width = frame.cols;
+			//int height = frame.rows;
+
 			//cv::Point2f final_point = (point_frame.X, point_frame.Y);
+			//cv::Point2f final_point = (0.0f, 0.0f);
 
 			//circle(frame, final_point, 150, Scalar(1, 1, 1), 5);
 		
@@ -310,6 +338,14 @@ namespace ComputeOnDevice
 		}
 
 	}
+
+	/*
+	void AppMain::ProcessBalls(frame,)
+	*/
+
+
+
+
 
 
 	void AppMain::OnUpdate(
@@ -387,7 +423,10 @@ namespace ComputeOnDevice
 		Windows::Foundation::Numerics::float4x4 OriginToFrame = latestFrame->OriginToFrame;
 		Windows::Perception::Spatial::SpatialCoordinateSystem^ CameraCoordinateSystem = latestFrame->CameraCoordinateSystem;
 		Windows::Foundation::Numerics::float4x4 CameraViewTransform = latestFrame->CameraViewTransform;
-		Windows::Foundation::Numerics::float4x4 CameraProjectionTransform = latestFrame->CameraProjectionTransform;
+		const Windows::Foundation::Numerics::float4x4 CameraProjectionTransform = latestFrame->CameraProjectionTransform;
+		//indows::Foundation::Numerics::float4x4 ViewToCam;
+
+		
 
 		cv::Mat cameraMatrix(3, 3, CV_64FC1);
 		cv::Mat distCoeffs(5, 1, CV_64FC1);
@@ -469,7 +508,7 @@ namespace ComputeOnDevice
 		}
 		*/
 		
-		/*
+		
 
 		if (!_undistortMapsInitialized)
 		{
@@ -520,7 +559,7 @@ namespace ComputeOnDevice
 				cv::INTER_AREA);
 		}
 
-		*/
+		
 
 		Mat frame = wrappedImage;
 		
