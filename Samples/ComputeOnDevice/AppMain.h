@@ -92,9 +92,9 @@ namespace ComputeOnDevice
 
 		Windows::Perception::Spatial::SpatialCoordinateSystem^ m_WorldCoordinateSystem;
 
-        void DetectPoolTable(_In_ cv::Mat frame, Windows::Perception::Spatial::SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Foundation::Numerics::float4x4 CameraViewTransform);
+        void DetectPoolTable(_In_ cv::Mat frame, Windows::Perception::Spatial::SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Foundation::Numerics::float4x4 CameraViewTransforms);
 
-		void ProcessBalls(cv::Mat frame);
+		void ProcessBalls(cv::Mat frame, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Perception::Spatial::SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Foundation::Numerics::float4x4 CameraViewTransform);
 
 		void sign(_In_ float x, _Out_ int res);
 
@@ -111,7 +111,12 @@ namespace ComputeOnDevice
 		Windows::Perception::Spatial::SpatialCoordinateSystem^ anchorSpace;
 
 		Windows::Foundation::Numerics::float4x4 WorldCoordinateSystemToAnchorSpace;
-		
+
+		Windows::Foundation::Numerics::float4x4 AnchorSpaceToWorldCoordinateSystem;
+
+		Windows::Perception::Spatial::SpatialAnchor^ m_table_anchor;
+
+		std::vector< Windows::Foundation::Numerics::float3> m_world_pocket_points;
 	};
 }
 	

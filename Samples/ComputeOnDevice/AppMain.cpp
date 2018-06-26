@@ -49,6 +49,7 @@ namespace ComputeOnDevice
 		, _holoLensMediaFrameSourceGroupStarted(false)
 		, _undistortMapsInitialized(false)
 		, _isActiveRenderer(false)
+		, _isPoolDetected(false)
 	{
 	}
 
@@ -83,7 +84,6 @@ namespace ComputeOnDevice
 	}
 
 
-	bool _isPoolDetected = false;
 
 
 	void AppMain::OnSpatialInput(
@@ -126,7 +126,7 @@ namespace ComputeOnDevice
 	}
 
 
-	void AppMain::DetectPoolTable(Mat frame, SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Foundation::Numerics::float4x4 CameraViewTransform)
+	void AppMain::DetectPoolTable(_In_ Mat frame, SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Foundation::Numerics::float4x4 CameraViewTransform)
 	{
 
 		//Use ChessBoardDetection to detect a corner and set a coordinate system linked with the plan of the pool table
@@ -225,6 +225,23 @@ namespace ComputeOnDevice
 			vector< Point2f > imagePoints;
 			projectPoints(axisPoints, rvec, tvec, cameraMatrix, distCoeffs, imagePoints);
 
+			double square_size = 0.029;
+		
+
+			/*
+			double square_size = 0.029;
+			float midlength_table = float(1.5 / square_size);
+			//float width_table = 10.f;
+			vector<Point3f> pocketPoints;
+			pocketPoints.push_back(Point3f(0, 0, 0));
+			pocketPoints.push_back(Point3f(0, midlength_table, 0));
+			//pocketPoints.push_back(Point3f(2 * midlength_table, 0, 0));
+			//pocketPoints.push_back(Point3f(2 * midlength_table, width_table, 0));
+			//pocketPoints.push_back(Point3f(midlength_table, width_table, 0));
+			//pocketPoints.push_back(Point3f(width_table, 0, 0));
+			projectPoints(pocketPoints, rvec, tvec, cameraMatrix, distCoeffs, m_image_pocket_points);
+			*/
+
 
 			// draw axis lines
 			line(frame, imagePoints[0], imagePoints[1], Scalar(0, 0, 255), 3);
@@ -238,8 +255,6 @@ namespace ComputeOnDevice
 
 			vector<Point3f> spacePoints;
 			vector<Point2f> imPoints;
-
-			double square_size = 0.029;
 
 			double x = tvec.at<double>(0, 0)*square_size;
 			double y = tvec.at<double>(1, 0)*square_size;
@@ -326,7 +341,7 @@ namespace ComputeOnDevice
 
 				quaternion orientation = make_quaternion_from_yaw_pitch_roll(float(a), float(b), float(c));
 
-				SpatialAnchor^ m_table_anchor = SpatialAnchor::TryCreateRelativeTo(CameraCoordinateSystem, Chess_position_camera_space, orientation);
+				m_table_anchor = SpatialAnchor::TryCreateRelativeTo(CameraCoordinateSystem, Chess_position_camera_space, orientation);
 				
 
 				if (m_table_anchor != nullptr)
@@ -335,11 +350,22 @@ namespace ComputeOnDevice
 					anchorSpace = m_table_anchor->CoordinateSystem;
 		
 					const auto tryTransform = m_WorldCoordinateSystem->TryGetTransformTo(anchorSpace);
-					if (tryTransform != nullptr)
+					const auto tryTransform2 = anchorSpace->TryGetTransformTo(m_WorldCoordinateSystem);
+
+					if (tryTransform != nullptr && tryTransform2 != nullptr)
 					{
-						WorldCoordinateSystemToAnchorSpace = tryTransform->Value;
 						_isPoolDetected = true;
+
+						WorldCoordinateSystemToAnchorSpace = tryTransform->Value;
+						AnchorSpaceToWorldCoordinateSystem = tryTransform2->Value;
+
+						//float midlength_table = 1.5f;
+						//float width_table = 1.5f;
+						m_world_pocket_points.push_back(transform(float3(0, 0, 0), AnchorSpaceToWorldCoordinateSystem));
+						//m_world_pocket_points.push_back(transform(float3(0, width_table, 0), AnchorSpaceToWorldCoordinateSystem));
+						//m_world_pocket_points.push_back(transform(float3(0, 0, midlength_table), AnchorSpaceToWorldCoordinateSystem));
 					}
+					
 				}
 
 			}
@@ -348,9 +374,12 @@ namespace ComputeOnDevice
 	}
 
 	
-	void AppMain::ProcessBalls(Mat frame)
+	void AppMain::ProcessBalls(Mat frame, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Perception::Spatial::SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Foundation::Numerics::float4x4 CameraViewTransform)
 	{
 
+		Mat cameraMatrix(3, 3, CV_64FC1);
+		Mat distCoeffs(5, 1, CV_64FC1);
+	
 		Mat HSVframe;
 		vector<Mat> channels(3);
 
@@ -391,33 +420,79 @@ namespace ComputeOnDevice
 		vector<vector<cv::Point> > contours_poly(contours.size());
 		vector<Point2f>center(contours.size());
 		vector<float>radius(contours.size());
-		int maxRadius = 60;
-		int MinRadius = 8;
-		Scalar color_ball = Scalar(255, 255, 255);
-		Scalar color_table = Scalar(100, 10, 10);
-		Mat drawing = Mat::zeros(hframe.size(), CV_8UC1);
-		vector<vector<cv::Point>>hull(contours.size());
-		double largest_area = 0;
-		int largest_contour_index = 0;
 
-		for (size_t i = 0; i < contours.size(); i++) {
+		double fx = cameraIntrinsics->FocalLength.x;
+		double fy = cameraIntrinsics->FocalLength.y;
+		double maxRadius = 0.03*(fx+fy/2.);
+		double MinRadius = 0.01*(fx+fy/2.);
+		Scalar color_ball = Scalar(255, 255, 255);
+		vector<vector<cv::Point>>hull(contours.size());
+
+		int bestball = 0;
+		float bestDotProduct = -1.0f;
+		bool ball_found = false;
+
+		for (size_t i = 0; i < contours.size(); i++)
+		{
 			convexHull(Mat(contours[i]), hull[i]);
 			approxPolyDP(hull[i], contours_poly[i], 3, true);
 			minEnclosingCircle(contours_poly[i], center[i], radius[i]);
-			double rad = radius[i];
-			double area = contourArea(hull[i], false);
-			if (area > largest_area) {
-				largest_area = area;
-				largest_contour_index = i;
-			}
-			if (rad<maxRadius && rad>MinRadius) {
-				//drawContours( drawing, contours_poly, i, color, 1, 8, vector<Vec4i>(), 0,Point() );
-				//circle(drawing, center[i], (int)radius[i], color_ball, 2, 8, 0 );
-				circle(frame, center[i], (int)radius[i], color_ball, 2, 8, 0);
+			
+			// Calculate the vector towards the center of the ball.
+			Windows::Foundation::Point centerOfBall_frame = { center[i].x,center[i].y };
+			float2 const centerOfBall = cameraIntrinsics->UnprojectAtUnitDepth(centerOfBall_frame);
+			float3 const vectorTowardscenter = normalize(float3{centerOfBall.x, centerOfBall.y, -1.0f });
+			
+			// Get the dot product between the vector towards the face and the gaze vector.
+			// The closer the dot product is to 1.0, the closer the face is to the middle of the video image.
+			float const dotFaceWithGaze = dot(vectorTowardscenter, -float3::unit_z());
+
+			// Pick the ball that best matches the users gaze.
+			if (dotFaceWithGaze > bestDotProduct && radius[i]<maxRadius && radius[i]>MinRadius)
+			{
+				bestDotProduct = dotFaceWithGaze;
+				bestball = i;
+				ball_found = true;
 			}
 		}
 
+		const auto tryTransform = m_WorldCoordinateSystem->TryGetTransformTo(CameraCoordinateSystem);
+		Windows::Foundation::Numerics::float4x4 WorldCoordinateSystemToCameraSpace = tryTransform->Value;
+
+
+		float3 pocket_points_camera_space = transform(m_world_pocket_points[0], WorldCoordinateSystemToCameraSpace);
+		float3 pocket_points_camera_view = transform(pocket_points_camera_space, CameraViewTransform);
+
+		vector<Point3f> spaceP;
+		spaceP.push_back(Point3f(pocket_points_camera_view.x, pocket_points_camera_view.y, pocket_points_camera_view.z));
+		vector<Point2f> pocket_points_frame;
+		Mat tvec_0(3, 1, CV_64F, double(0));
+		Mat R_0(3, 3, CV_64F); 
+		cv::setIdentity(R_0);
+		projectPoints(spaceP, R_0, tvec_0, cameraMatrix, distCoeffs, pocket_points_frame);
+		circle(frame, pocket_points_frame[0], 100, color_ball, 2, 8, 0);
+
+		/*
+		
+		if (ball_found)
+		{ 
+			//draw circle
+			circle(frame, center[bestball], (int)radius[bestball], color_ball, 2, 8, 0);
+			// draw trajectory lines
+			//line(frame, pocket_points_frame[0], center[bestball], Scalar(0, 0, 0), 3);
+			//line(frame, m_image_pocket_points[1], center[bestball], Scalar(0, 0, 0), 3);
+			//line(frame, image_pocket_points[2], center[bestball], Scalar(0, 0, 0), 3);
+			//line(frame, image_pocket_points[3], center[bestball], Scalar(0, 0, 0), 3);
+			//line(frame, image_pocket_points[4], center[bestball], Scalar(0, 0, 0), 3);
+			//line(frame, image_pocket_points[5], center[bestball], Scalar(0, 0, 0), 3);
+		}
+		
+		*/
+		
+	
+		
 	}
+
 
 	void AppMain::OnUpdate(
 		_In_ Windows::Graphics::Holographic::HolographicFrame^ holographicFrame,
@@ -494,7 +569,9 @@ namespace ComputeOnDevice
 		Windows::Foundation::Numerics::float4x4 OriginToFrame = latestFrame->OriginToFrame;
 		Windows::Perception::Spatial::SpatialCoordinateSystem^ CameraCoordinateSystem = latestFrame->CameraCoordinateSystem;
 		Windows::Foundation::Numerics::float4x4 CameraViewTransform = latestFrame->CameraViewTransform;
-		const Windows::Foundation::Numerics::float4x4 CameraProjectionTransform = latestFrame->CameraProjectionTransform;
+		Windows::Foundation::Numerics::float4x4 CameraProjectionTransform = latestFrame->CameraProjectionTransform;
+
+
 
 
 
@@ -523,8 +600,7 @@ namespace ComputeOnDevice
 		}
 
 
-
-		cv::Mat wrappedImage;
+		cv::Mat frame;
 
 		// WrapHoloLensSensorFrameWithCvMat defined in OpenCVHelpers 
 		// In : holoLensSensorFrame (1st arg)
@@ -532,14 +608,24 @@ namespace ComputeOnDevice
 
 		rmcv::WrapHoloLensSensorFrameWithCvMat(
 			latestFrame,
-			wrappedImage);
+			frame);
 
+		Mat rvec;
+		Mat tvec;
 		
-
 		if (_isPoolDetected == false)
-			{
-			DetectPoolTable(wrappedImage, CameraCoordinateSystem, cameraIntrinsics, CameraViewTransform);
-			}
+		{
+			DetectPoolTable(frame, CameraCoordinateSystem, cameraIntrinsics, CameraViewTransform);
+		}
+		
+		if (_isPoolDetected == false)
+		{
+			cv::blur(frame, frame, cv::Size(20, 20));
+		}
+		else
+		{
+			ProcessBalls(frame, cameraIntrinsics, CameraCoordinateSystem, CameraViewTransform);
+		}
 
 
 
@@ -628,100 +714,8 @@ namespace ComputeOnDevice
 
 		*/
 
-		Mat frame = wrappedImage;
 		
-		if (_isPoolDetected == false)
-		{
-			cv::blur(frame, frame, cv::Size(20, 20));
-		}
-		else
-		{
-
-			ProcessBalls(frame);
-
-		}
-
-		/*
-
 		
-
-		drawContours(frame, hull, largest_contour_index, color_table, 3, 8, vector<Vec4i>(), 0, cv::Point());
-		//drawContours(drawing, hull, largest_contour_index, Scalar(255), 3, 8, vector<Vec4i>(), 0, cv::Point());
-
-
-
-
-		/*
-
-
-		//Blurs the image using the median filter with the ksize�ksize aperture
-		cv::medianBlur(
-		_resizedPVCameraImage,
-		_blurredPVCameraImage,
-		3);
-
-		//Finds edges in an image using the Canny algorithm
-		cv::Canny(
-		_blurredPVCameraImage,
-		_cannyPVCameraImage,
-		50.0,
-		200.0);
-
-		//For each pxel of the edge map, if the pixel value is > 64, color the
-		//corresponding pixel in blurredPVCameraImage
-
-
-		for (int32_t y = 0; y < _blurredPVCameraImage.rows; ++y)
-		{
-		for (int32_t x = 0; x < _blurredPVCameraImage.cols; ++x)
-		{
-		if (_cannyPVCameraImage.at<uint8_t>(y, x) > 64)
-		{
-		//*(_blurredPVCameraImage.ptr<uint32_t>(y, x)) = 0xFFFF00FF;
-		*(_blurredPVCameraImage.ptr<uint32_t>(y, x)) = 0x00FBFFFF;
-		}
-		}
-		}
-
-
-
-		*/
-		/*
-
-
-		//Linedetection
-
-		//create LineFinder instance
-		//LineFinder finder;
-
-		//Set Hough parmeters
-		//finder.setLineLenghAndGap(100, 20);
-		//finder.setMinVote(80);
-
-		//Detect lines and draw them
-		//std::vector<cv::Vec4i> lines = finder.findLines(_cannyPVCameraImage);
-		//finder.drawDetectedLines(_blurredPVCameraImage);
-
-		//without using  class
-
-		std::vector<cv::Vec4i> lines;
-		cv::HoughLinesP(_cannyPVCameraImage, lines, 1, 3*3.14159 / 180, 70, 50, 80);
-
-		std::vector<cv::Vec4i>::const_iterator it = lines.begin();
-		cv::Scalar color = cv::Scalar(200, 30, 30);
-
-
-		while (it!= lines.end()) {
-		cv::Point pt1((*it)[0], (*it)[1]);
-		cv::Point pt2((*it)[2], (*it)[3]);
-		cv::line(_blurredPVCameraImage, pt1, pt2, color);
-		++it;
-		}
-
-		imwrite("../../../result.jpg",_blurredPVCameraImage);
-
-
-		*/
 
 		//Update 2D texture to suit with blurredPVCameraImage
 
@@ -732,77 +726,10 @@ namespace ComputeOnDevice
 			frame,
 			_currentVisualizationTexture);
 
-		//SpatialPointerPose^ pointerPose = SpatialPointerPose::TryGetAtTimestamp(currentCoordinateSystem, prediction->Timestamp);
+	
 	}
 
 
-
-	/*
-
-	// Renders the current frame to each holographic camera, according to the
-	// current application and spatial positioning state. Returns true if the
-	// frame was rendered to at least one camera.
-	bool AppMain::Render(Windows::Graphics::Holographic::HolographicFrame^ holographicFrame)
-	{
-	if (!m_isReadyToRender)
-	{
-	return false;
-	}
-
-	SpatialCoordinateSystem^ currentCoordinateSystem = m_referenceFrame->GetStationaryCoordinateSystemAtTimestamp(holographicFrame->CurrentPrediction->Timestamp);
-
-	// Lock the set of holographic camera resources, then draw to each camera
-	// in this frame.
-	return m_deviceResources->UseHolographicCameraResources<bool>(
-	[this, holographicFrame, currentCoordinateSystem](std::map<UINT32, std::unique_ptr<DX::CameraResources>>& cameraResourceMap)
-	{
-	// Up-to-date frame predictions enhance the effectiveness of image stablization and
-	// allow more accurate positioning of holograms.
-	holographicFrame->UpdateCurrentPrediction();
-	HolographicFramePrediction^ prediction = holographicFrame->CurrentPrediction;
-
-	bool atLeastOneCameraRendered = false;
-	for (auto cameraPose : prediction->CameraPoses)
-	{
-	// This represents the device-based resources for a HolographicCamera.
-	DX::CameraResources* pCameraResources = cameraResourceMap[cameraPose->HolographicCamera->Id].get();
-
-	// Get the device context.
-	const auto context = m_deviceResources->GetD3DDeviceContext();
-	const auto depthStencilView = pCameraResources->GetDepthStencilView();
-
-	// Set render targets to the current holographic camera.
-	ID3D11RenderTargetView *const targets[1] = { pCameraResources->GetBackBufferRenderTargetView() };
-	context->OMSetRenderTargets(1, targets, depthStencilView);
-
-	// Clear the back buffer and depth stencil view.
-	context->ClearRenderTargetView(targets[0], DirectX::Colors::Transparent);
-	context->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-
-	// The view and projection matrices for each holographic camera will change
-	// every frame. This function refreshes the data in the constant buffer for
-	// the holographic camera indicated by cameraPose.
-	pCameraResources->UpdateViewProjectionBuffer(m_deviceResources, cameraPose, currentCoordinateSystem);
-
-	// Attach the view/projection constant buffer for this camera to the graphics pipeline.
-	bool cameraActive = pCameraResources->AttachViewProjectionBuffer(m_deviceResources);
-
-	// Render world-locked content only when positional tracking is active.
-	if (cameraActive)
-	{
-	_currentSlateRenderer->Render(_currentVisualizationTexture);
-	}
-
-	atLeastOneCameraRendered = true;
-	}
-
-	return atLeastOneCameraRendered;
-	});
-
-	}
-
-
-	*/
 
 
 	void AppMain::OnPreRender()
