@@ -126,7 +126,7 @@ namespace ComputeOnDevice
 	}
 
 
-	void AppMain::DetectPoolTable(_In_ Mat frame, SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Foundation::Numerics::float4x4 CameraViewTransform)
+	void AppMain::DetectPoolTable(Mat frame, SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Foundation::Numerics::float4x4 CameraViewTransform, Windows::Foundation::Numerics::float4x4 FrameToOrigin, Windows::Foundation::Numerics::float4x4 OriginToFrame)
 	{
 
 		//Use ChessBoardDetection to detect a corner and set a coordinate system linked with the plan of the pool table
@@ -161,7 +161,7 @@ namespace ComputeOnDevice
 		tvec_cam.at<double>(2, 0) = CameraViewTransform.m34;
 
 		R_cam.at<double>(0, 0) = CameraViewTransform.m11;
-		R_cam.at<double>(0, 1) = CameraViewTransform.m21;
+		R_cam.at<double>(1, 0) = CameraViewTransform.m21;
 		R_cam.at<double>(2, 0) = CameraViewTransform.m31;
 		R_cam.at<double>(0, 1) = CameraViewTransform.m12;
 		R_cam.at<double>(1, 1) = CameraViewTransform.m22;
@@ -256,14 +256,15 @@ namespace ComputeOnDevice
 			vector<Point3f> spacePoints;
 			vector<Point2f> imPoints;
 
-			double x = tvec.at<double>(0, 0)*square_size;
-			double y = tvec.at<double>(1, 0)*square_size;
-			double z = tvec.at<double>(2, 0)*square_size;
+			double xa = tvec.at<double>(0, 0)*square_size;
+			double ya = tvec.at<double>(1, 0)*square_size;
+			double za = tvec.at<double>(2, 0)*square_size;
 
-			float3 Chess_position_camera_space = (float(x), float(y), float(z));
+			float3 Chess_position_camera_view_space = { float(xa), float(ya), float(za) };
+
 
 			vector<Point3f> spaceP;
-			spaceP.push_back(Point3f(float(x), float(y), float(z)));
+			spaceP.push_back(Point3f(Chess_position_camera_view_space.x, Chess_position_camera_view_space.y, Chess_position_camera_view_space.z));
 			vector< Point2f > imageP;
 
 			Mat tvec_0(3, 1, CV_64F, double(0)); // translation vector extrisics camera 
@@ -285,7 +286,7 @@ namespace ComputeOnDevice
 			{ 
 				//create quaternion 
 
-				const float4x4 Rotation = float4x4(R.at<float>(0, 0), R.at<float>(0, 1), R.at<float>(0, 2), float(0.) , R.at<float>(1, 0), R.at<float>(1, 1), R.at<float>(1, 2), float(0.), R.at<float>(2, 0), R.at<float>(2, 1), R.at<float>(2, 2), float(0.), float(0.), float(0.), float(0.), float(1.));
+				//const float4x4 Rotation = float4x4(R.at<float>(0, 0), R.at<float>(0, 1), R.at<float>(0, 2), float(0.) , R.at<float>(1, 0), R.at<float>(1, 1), R.at<float>(1, 2), float(0.), R.at<float>(2, 0), R.at<float>(2, 1), R.at<float>(2, 2), float(0.), float(0.), float(0.), float(0.), float(1.));
 		
 				//SpatialAnchor^ m_table_anchor = SpatialAnchor::TryCreateRelativeTo(CameraCoordinateSystem, Chess_position_camera_space);
 			
@@ -313,12 +314,16 @@ namespace ComputeOnDevice
 				*/
 				
 				// Create the anchor at position.
-
+				
 				Mat Rot;
-				Mat R_cam_inv;
-				transpose(R_cam, R_cam_inv);
-				Rot = R + R_cam_inv;
 
+				//transpose(R_cam, R_cam_inv);
+
+				Mat R_cam_inv = R_cam.inv();
+				//Rot = R + R_cam_inv;
+
+	
+				/*
 				double sy = sqrt(R.at<double>(0, 0) * Rot.at<double>(0, 0) + Rot.at<double>(1, 0) * Rot.at<double>(1, 0));
 
 				bool singular = sy < 1e-6; // If
@@ -336,42 +341,94 @@ namespace ComputeOnDevice
 					b = atan2(-Rot.at<double>(2, 0), sy);
 					c = 0;
 				}
+				*/
+	
+				
+				float4x4 CameraViewTransformInv = float4x4 {
+					R_cam_inv.at<float>(0, 0), R_cam_inv.at<float>(0, 1), R_cam_inv.at<float>(0, 2), 0.f, 
+					R_cam_inv.at<float>(1, 0), R_cam_inv.at<float>(1, 1), R_cam_inv.at<float>(1, 2), 0.f, 
+					R_cam_inv.at<float>(2, 0), R_cam_inv.at<float>(2, 1), R_cam_inv.at<float>(2, 2), 0.f, 
+					0.f, 0.f, 0.f, 1 };
+							
+				
+				float3 c2 = { Chess_position_camera_view_space.x - CameraViewTransform.m14, Chess_position_camera_view_space.y - CameraViewTransform.m24, Chess_position_camera_view_space.z - CameraViewTransform.m34 };
+				
+				float3 Chess_position_camera_space2 = {c2.x*CameraViewTransform.m11 + c2.y*CameraViewTransform.m21 + c2.z*CameraViewTransform.m31,
+					c2.x*CameraViewTransform.m12 + c2.y*CameraViewTransform.m22 + c2.z*CameraViewTransform.m32,
+					c2.x*CameraViewTransform.m13 + c2.y*CameraViewTransform.m23 + c2.z*CameraViewTransform.m33};
 
+				float3 Chess_position_camera_space = {c2.x*R_cam_inv.at<float>(1, 1) + c2.y*R_cam_inv.at<float>(1, 2) + c2.z*R_cam_inv.at<float>(1, 3),
+					c2.x*R_cam_inv.at<float>(2, 1) + c2.y*R_cam_inv.at<float>(2, 2) + c2.z*R_cam_inv.at<float>(2,3),
+					c2.x*R_cam_inv.at<float>(3, 1) + c2.y*R_cam_inv.at<float>(3, 2) + c2.z*R_cam_inv.at<float>(3, 2) };
 
+				//float3 c1 = (Chess_position_camera_space.x*CameraViewTransform.m11 + Chess_position_camera_space.y*CameraViewTransform.m12 + Chess_position_camera_space.z*CameraViewTransform.m13 + CameraViewTransform.m14,
+					//Chess_position_camera_space.x*CameraViewTransform.m21 + Chess_position_camera_space.y*CameraViewTransform.m22 + Chess_position_camera_space.z*CameraViewTransform.m23 + CameraViewTransform.m24,
+					//Chess_position_camera_space.x*CameraViewTransform.m31 + Chess_position_camera_space.y*CameraViewTransform.m32 + Chess_position_camera_space.z*CameraViewTransform.m33 + CameraViewTransform.m34);
+				
+				float3 c3 = transform(Chess_position_camera_space2, CameraViewTransform);
 
-				quaternion orientation = make_quaternion_from_yaw_pitch_roll(float(a), float(b), float(c));
+				float3 c5 = transform(Chess_position_camera_space, FrameToOrigin);
 
-				m_table_anchor = SpatialAnchor::TryCreateRelativeTo(CameraCoordinateSystem, Chess_position_camera_space, orientation);
+				float3 c6 = transform(Chess_position_camera_space, OriginToFrame);
+
+				vector<Point3f> sp;
+				sp.push_back(Point3f(c3.x, c3.y, c3.z));
+				vector<Point2f> im;
+				projectPoints(sp, R_0, tvec_0, cameraMatrix, distCoeffs, im);
+				circle(frame, im[0], 100, Scalar(0, 0, 0), 2, 8, 0);
+
 				
 
-				if (m_table_anchor != nullptr)
-				{	
-		
-					anchorSpace = m_table_anchor->CoordinateSystem;
-		
-					const auto tryTransform = m_WorldCoordinateSystem->TryGetTransformTo(anchorSpace);
-					const auto tryTransform2 = anchorSpace->TryGetTransformTo(m_WorldCoordinateSystem);
 
-					if (tryTransform != nullptr && tryTransform2 != nullptr)
-					{
-						_isPoolDetected = true;
 
-						WorldCoordinateSystemToAnchorSpace = tryTransform->Value;
-						AnchorSpaceToWorldCoordinateSystem = tryTransform2->Value;
+				//quaternion orientation = make_quaternion_from_yaw_pitch_roll(float(a), float(b), float(c));
+
+				//m_table_anchor = SpatialAnchor::TryCreateRelativeTo(CameraCoordinateSystem, Chess_position_camera_space);
+				
+				//if (m_table_anchor != nullptr)
+				//{	
+		
+				//	anchorSpace = m_table_anchor->CoordinateSystem;
+		
+				//	const auto tryTransform = m_WorldCoordinateSystem->TryGetTransformTo(anchorSpace);
+				//	const auto tryTransform2 = anchorSpace->TryGetTransformTo(m_WorldCoordinateSystem);
+
+				//	if (tryTransform != nullptr && tryTransform2 != nullptr)
+				//	{
+				//		_isPoolDetected = true;
+				//
+				//		WorldCoordinateSystemToAnchorSpace = tryTransform->Value;
+				//		AnchorSpaceToWorldCoordinateSystem = tryTransform2->Value;
 
 						//float midlength_table = 1.5f;
 						//float width_table = 1.5f;
-						m_world_pocket_points.push_back(transform(float3(0, 0, 0), AnchorSpaceToWorldCoordinateSystem));
+				//		m_world_pocket_points.push_back(transform(float3(0, 0, 0), AnchorSpaceToWorldCoordinateSystem));
 						//m_world_pocket_points.push_back(transform(float3(0, width_table, 0), AnchorSpaceToWorldCoordinateSystem));
 						//m_world_pocket_points.push_back(transform(float3(0, 0, midlength_table), AnchorSpaceToWorldCoordinateSystem));
-					}
+						
+						/*
+						const auto tryTransform3 = m_WorldCoordinateSystem->TryGetTransformTo(CameraCoordinateSystem);
+						Windows::Foundation::Numerics::float4x4 WorldCoordinateSystemToCameraSpace = tryTransform3->Value;
+
+
+						float3 pocket_points_camera_space = transform(m_world_pocket_points[0], WorldCoordinateSystemToCameraSpace);
+						float3 pocket_points_camera_view = transform(pocket_points_camera_space, CameraViewTransform);
+
+						vector<Point3f> space;
+						space.push_back(Point3f(pocket_points_camera_view.x, pocket_points_camera_view.y, pocket_points_camera_view.z));
+						vector<Point2f> pocket_points_frame;
+						
+						projectPoints(space, R_0, tvec_0, cameraMatrix, distCoeffs, pocket_points_frame);
+						circle(frame, pocket_points_frame[0], 100, Scalar (0,0,0) , 2, 8, 0);
+						*/
+				//	}
 					
 				}
 
 			}
 		}
 
-	}
+	
 
 	
 	void AppMain::ProcessBalls(Mat frame, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Perception::Spatial::SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Foundation::Numerics::float4x4 CameraViewTransform)
@@ -456,6 +513,7 @@ namespace ComputeOnDevice
 			}
 		}
 
+		
 		const auto tryTransform = m_WorldCoordinateSystem->TryGetTransformTo(CameraCoordinateSystem);
 		Windows::Foundation::Numerics::float4x4 WorldCoordinateSystemToCameraSpace = tryTransform->Value;
 
@@ -531,6 +589,8 @@ namespace ComputeOnDevice
 		}
 
 
+		
+
 		// Get a prediction of where holographic cameras will be when this frame
 		// is presented.
 		//HolographicFramePrediction^ prediction = holographicFrame->CurrentPrediction;
@@ -574,7 +634,7 @@ namespace ComputeOnDevice
 
 
 
-
+		
 
 		
 
@@ -612,19 +672,23 @@ namespace ComputeOnDevice
 
 		Mat rvec;
 		Mat tvec;
+
+	
+		
+		//if (_isPoolDetected == false)
+		//{
+		//	DetectPoolTable(frame, CameraCoordinateSystem, cameraIntrinsics, CameraViewTransform);
+		//}
+
+		DetectPoolTable(frame, CameraCoordinateSystem, cameraIntrinsics, CameraViewTransform, FrameToOrigin, OriginToFrame);
 		
 		if (_isPoolDetected == false)
 		{
-			DetectPoolTable(frame, CameraCoordinateSystem, cameraIntrinsics, CameraViewTransform);
-		}
-		
-		if (_isPoolDetected == false)
-		{
-			cv::blur(frame, frame, cv::Size(20, 20));
+		//	cv::blur(frame, frame, cv::Size(20, 20));
 		}
 		else
 		{
-			ProcessBalls(frame, cameraIntrinsics, CameraCoordinateSystem, CameraViewTransform);
+			//ProcessBalls(frame, cameraIntrinsics, CameraCoordinateSystem, CameraViewTransform);
 		}
 
 
