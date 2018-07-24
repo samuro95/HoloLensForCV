@@ -168,7 +168,7 @@ namespace ComputeOnDevice
 		Windows::Foundation::Numerics::float3 X_rendered_frame;
 		Windows::Foundation::Numerics::float3 Y_rendered_frame;
 
-		ball_real_diameter = 0.45;
+		float ball_real_diameter = 0.45f;
 
 	};
 }
