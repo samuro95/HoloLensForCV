@@ -1,9 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="..\..\packages\directxtk_uwp.2017.6.21.1\build\native\directxtk_uwp.props" Condition="Exists('..\..\packages\directxtk_uwp.2017.6.21.1\build\native\directxtk_uwp.props')" />
   <Import Project="$(SolutionDir)\packages\directxtk_uwp.2017.6.21.1\build\native\directxtk_uwp.props" Condition="Exists('$(SolutionDir)\packages\directxtk_uwp.2017.6.21.1\build\native\directxtk_uwp.props')" />
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{CF168211-03A8-419E-840B-3E6BF6688FD9}</ProjectGuid>
+    <ProjectGuid>{D13C842F-66ED-4098-9AA4-146CFC9F12CA}</ProjectGuid>
     <Keyword>ComputeOnDevice</Keyword>
     <RootNamespace>ComputeOnDevice</RootNamespace>
     <DefaultLanguage>en-US</DefaultLanguage>
@@ -14,7 +13,7 @@
     <WindowsTargetPlatformMinVersion>10.0.14393.0</WindowsTargetPlatformMinVersion>
     <ApplicationTypeRevision>10.0</ApplicationTypeRevision>
     <EnableDotNetNativeCompatibleProfile>true</EnableDotNetNativeCompatibleProfile>
-    <ProjectName>ComputeOnDevice</ProjectName>
+    <ProjectName>HoloPool</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <ItemGroup Label="ProjectConfigurations">
@@ -170,8 +169,7 @@
     <Import Project="$(SolutionDir)\packages\OpenCV.Win.HighGUI.310.6.1\build\native\opencv.win.highgui.targets" Condition="Exists('$(SolutionDir)\packages\OpenCV.Win.HighGUI.310.6.1\build\native\opencv.win.highgui.targets')" />
     <Import Project="$(SolutionDir)\packages\OpenCV.Win.Features2D.310.6.1\build\native\opencv.win.features2d.targets" Condition="Exists('$(SolutionDir)\packages\OpenCV.Win.Features2D.310.6.1\build\native\opencv.win.features2d.targets')" />
     <Import Project="$(SolutionDir)\packages\OpenCV.Win.Calib3D.310.6.1\build\native\opencv.win.calib3d.targets" Condition="Exists('$(SolutionDir)\packages\OpenCV.Win.Calib3D.310.6.1\build\native\opencv.win.calib3d.targets')" />
-    <Import Project="..\..\packages\directxmath.2018.7.23.2\build\native\directxmath.targets" Condition="Exists('..\..\packages\directxmath.2018.7.23.2\build\native\directxmath.targets')" />
-    <Import Project="..\..\packages\directxtk_uwp.2017.6.21.1\build\native\directxtk_uwp.targets" Condition="Exists('..\..\packages\directxtk_uwp.2017.6.21.1\build\native\directxtk_uwp.targets')" />
+    <Import Project="..\..\packages\directxmath.3.1.2.0\build\native\directxmath.targets" Condition="Exists('..\..\packages\directxmath.3.1.2.0\build\native\directxmath.targets')" />
   </ImportGroup>
   <PropertyGroup>
     <AppxPackageSigningEnabled>true</AppxPackageSigningEnabled>
@@ -191,8 +189,6 @@
     <Error Condition="!Exists('$(SolutionDir)\packages\OpenCV.Win.HighGUI.310.6.1\build\native\opencv.win.highgui.targets')" Text="$([System.String]::Format('$(ErrorText)', '$(SolutionDir)\packages\OpenCV.Win.HighGUI.310.6.1\build\native\opencv.win.highgui.targets'))" />
     <Error Condition="!Exists('$(SolutionDir)\packages\OpenCV.Win.Features2D.310.6.1\build\native\opencv.win.features2d.targets')" Text="$([System.String]::Format('$(ErrorText)', '$(SolutionDir)\packages\OpenCV.Win.Features2D.310.6.1\build\native\opencv.win.features2d.targets'))" />
     <Error Condition="!Exists('$(SolutionDir)\packages\OpenCV.Win.Calib3D.310.6.1\build\native\opencv.win.calib3d.targets')" Text="$([System.String]::Format('$(ErrorText)', '$(SolutionDir)\packages\OpenCV.Win.Calib3D.310.6.1\build\native\opencv.win.calib3d.targets'))" />
-    <Error Condition="!Exists('..\..\packages\directxmath.2018.7.23.2\build\native\directxmath.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\packages\directxmath.2018.7.23.2\build\native\directxmath.targets'))" />
-    <Error Condition="!Exists('..\..\packages\directxtk_uwp.2017.6.21.1\build\native\directxtk_uwp.props')" Text="$([System.String]::Format('$(ErrorText)', '..\..\packages\directxtk_uwp.2017.6.21.1\build\native\directxtk_uwp.props'))" />
-    <Error Condition="!Exists('..\..\packages\directxtk_uwp.2017.6.21.1\build\native\directxtk_uwp.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\packages\directxtk_uwp.2017.6.21.1\build\native\directxtk_uwp.targets'))" />
+    <Error Condition="!Exists('..\..\packages\directxmath.3.1.2.0\build\native\directxmath.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\packages\directxmath.3.1.2.0\build\native\directxmath.targets'))" />
   </Target>
 </Project>

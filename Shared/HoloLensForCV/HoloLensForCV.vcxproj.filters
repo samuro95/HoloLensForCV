@@ -65,9 +65,6 @@
     <ClInclude Include="MediaFrameSourceGroupType.h">
       <Filter>Sensor Frame Acquisition</Filter>
     </ClInclude>
-    <ClInclude Include="MediaFrameReaderContext.h">
-      <Filter>Sensor Frame Acquisition</Filter>
-    </ClInclude>
     <ClInclude Include="SensorType.h" />
     <ClInclude Include="SensorFrameRecorder.h">
       <Filter>Sensor Frame Recording</Filter>
@@ -89,8 +86,12 @@
     </ClInclude>
     <ClInclude Include="CameraIntrinsics.h" />
     <ClInclude Include="ICameraIntrinsics.h" />
+    <ClInclude Include="MediaFrameReaderContext.h">
+      <Filter>Sensor Frame Acquisition</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="README.md" />
+    <None Include="packages.config" />
   </ItemGroup>
 </Project>

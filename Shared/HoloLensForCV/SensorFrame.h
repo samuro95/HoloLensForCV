@@ -27,6 +27,7 @@ namespace HoloLensForCV
         property SensorType FrameType;
         property Windows::Foundation::DateTime Timestamp;
         property Windows::Graphics::Imaging::SoftwareBitmap^ SoftwareBitmap;
+		property Windows::Media::Capture::Frames::DepthMediaFrame^ DepthFrame;
 
         property Windows::Media::Devices::Core::CameraIntrinsics^ CoreCameraIntrinsics;
         property CameraIntrinsics^ SensorStreamingCameraIntrinsics;

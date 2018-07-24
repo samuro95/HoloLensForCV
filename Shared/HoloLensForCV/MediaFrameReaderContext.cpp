@@ -112,6 +112,9 @@ namespace HoloLensForCV
         Windows::Graphics::Imaging::SoftwareBitmap^ softwareBitmap =
             frame->VideoMediaFrame->SoftwareBitmap;
 
+
+		
+
         //
         // Finally, wrap all of the above information in a SensorFrame object and pass it
         // down to the sensor frame sink. We'll also retain a reference to the latest sensor
@@ -119,6 +122,9 @@ namespace HoloLensForCV
         //
         SensorFrame^ sensorFrame =
             ref new SensorFrame(_sensorType, timestamp, softwareBitmap);
+
+		Windows::Media::Capture::Frames::DepthMediaFrame^ DepthFrame = frame->VideoMediaFrame->DepthMediaFrame;
+		sensorFrame->DepthFrame = DepthFrame;
 
         //
         // Extract the frame-to-origin transform, if the MFT exposed it:
@@ -135,10 +141,13 @@ namespace HoloLensForCV
                     c_MFSampleExtension_Spatial_CameraCoordinateSystem));
         }
 
+		Windows::Perception::Spatial::SpatialCoordinateSystem^ cameraCoordSystem = frame->CoordinateSystem;
+
         if (nullptr != frameCoordinateSystem)
         {
             
-			sensorFrame->CameraCoordinateSystem = frameCoordinateSystem;
+			//sensorFrame->CameraCoordinateSystem = frameCoordinateSystem;
+			sensorFrame->CameraCoordinateSystem = cameraCoordSystem;
 			
 			Platform::IBox<Windows::Foundation::Numerics::float4x4>^ frameToOriginReference =
                 frameCoordinateSystem->TryGetTransformTo(

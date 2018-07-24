@@ -40,7 +40,7 @@ using namespace Microsoft::WRL;
 
 using namespace DirectX;
 
-namespace ComputeOnDevice
+namespace HoloPool
 {
 	AppMain::AppMain(
 		const std::shared_ptr<Graphics::DeviceResources>& deviceResources)
@@ -56,6 +56,8 @@ namespace ComputeOnDevice
 	}
 
 
+
+
 	void AppMain::OnHolographicSpaceChanged(
 		Windows::Graphics::Holographic::HolographicSpace^ holographicSpace)
 	{
@@ -69,55 +71,22 @@ namespace ComputeOnDevice
 
 		// Use the default SpatialLocator to track the motion of the device.
 
-		m_locator = SpatialLocator::GetDefault();
-		
-
-		// Be able to respond to changes in the positional tracking state.
-		m_locatabilityChangedToken =
-			m_locator->LocatabilityChanged +=
-			ref new Windows::Foundation::TypedEventHandler<SpatialLocator^, Object^>(
-				std::bind(&AppMain::OnLocatabilityChanged, this, _1, _2)
-				);
-
-		// Respond to camera added events by creating any resources that are specific
-		// to that camera, such as the back buffer render target view.
-		// When we add an event handler for CameraAdded, the API layer will avoid putting
-		// the new camera in new HolographicFrames until we complete the deferral we created
-		// for that handler, or return from the handler without creating a deferral. This
-		// allows the app to take more than one frame to finish creating resources and
-		// loading assets for the new holographic camera.
-		// This function should be registered before the app creates any HolographicFrames.
-		m_cameraAddedToken =
-			m_holographicSpace->CameraAdded +=
-			ref new Windows::Foundation::TypedEventHandler<HolographicSpace^, HolographicSpaceCameraAddedEventArgs^>(
-				std::bind(&AppMain::OnCameraAdded, this, _1, _2)
-				);
-
-		// Respond to camera removed events by releasing resources that were created for that
-		// camera.
-		// When the app receives a CameraRemoved event, it releases all references to the back
-		// buffer right away. This includes render target views, Direct2D target bitmaps, and so on.
-		// The app must also ensure that the back buffer is not attached as a render target, as
-		// shown in DeviceResources::ReleaseResourcesForBackBuffer.
-		m_cameraRemovedToken =
-			m_holographicSpace->CameraRemoved +=
-			ref new Windows::Foundation::TypedEventHandler<HolographicSpace^, HolographicSpaceCameraRemovedEventArgs^>(
-				std::bind(&AppMain::OnCameraRemoved, this, _1, _2)
-				);
+		//m_locator = SpatialLocator::GetDefault();
+		m_locator = _spatialPerception->GetSpatialLocator();
 
 		// The simplest way to render world-locked holograms is to create a stationary reference frame
 		// when the app is launched. This is roughly analogous to creating a "world" coordinate system
 		// with the origin placed at the device's position as the app is launched.
 
-		
-		//m_referenceFrame = _spatialPerception->GetOriginFrameOfReference();
-		m_referenceFrame = m_locator->CreateStationaryFrameOfReferenceAtCurrentLocation();
+		m_reference_attached_Frame = m_locator->CreateAttachedFrameOfReferenceAtCurrentHeading();
 
+		m_referenceFrame = _spatialPerception->GetOriginFrameOfReference();
 
 		m_WorldCoordinateSystem = m_referenceFrame->CoordinateSystem;
 
-		
+		//dbg::trace(L"world coordinate system set");
 	}
+
 
 
 
@@ -127,10 +96,10 @@ namespace ComputeOnDevice
 	{
 
 		//Get the coordinate system in use 
-		//Windows::Perception::Spatial::SpatialCoordinateSystem^ currentCoordinateSystem =
-		//	m_locator->CreateStationaryFrameOfReferenceAtCurrentLocation()->CoordinateSystem;
+		Windows::Perception::Spatial::SpatialCoordinateSystem^ currentCoordinateSystem =
+			_spatialPerception->GetOriginFrameOfReference()->CoordinateSystem;
 
-		m_reference_attached_Frame = m_locator->CreateAttachedFrameOfReferenceAtCurrentHeading();
+
 
 
 		if (!_isActiveRenderer) //isActiveRendere is True when the Hologram visualisation window is activated but not frozen 
@@ -143,19 +112,16 @@ namespace ComputeOnDevice
 			// When a Pressed gesture is detected, the sample hologram will be repositioned
 			// two meters in front of the user.
 
-			SpatialPointerPose^ pointerPose = pointerState->TryGetPointerPose(m_WorldCoordinateSystem);
+			_currentSlateRenderer->PositionHologram(
+				pointerState->TryGetPointerPose(currentCoordinateSystem));
 
-			_currentSlateRenderer->PositionHologram(pointerPose);
+			//m_markerRenderer->PositionHologram(
+			//	pointerState->TryGetPointerPose(currentCoordinateSystem));
 
-			const float3 headPosition = pointerPose->Head->Position;
-			const float3 headDirection = pointerPose->Head->ForwardDirection;
-			constexpr float distanceFromUser = 2.0f; // meters
-			const float3 gazeAtTwoMeters = headPosition + (distanceFromUser * headDirection);
 
-			center_plane_rendered_frame = gazeAtTwoMeters;
+			SpatialPointerPose^ pointerPose = pointerState->TryGetPointerPose(currentCoordinateSystem);
 
-			ConstructPlaneFromPointNormal(center_plane_rendered_frame, headDirection, plane_rendered_frame);
-		
+
 			_isActiveRenderer = true;
 		}
 		else
@@ -170,32 +136,6 @@ namespace ComputeOnDevice
 	void AppMain::sign(_In_ float x, _Out_ int res)
 	{
 		res = (x > 0) - (x < 0);
-	}
-
-	
-	void AppMain::ConstructPlaneFromPointNormal(_In_ Windows::Foundation::Numerics::float3 Point, Windows::Foundation::Numerics::float3 normal, _Out_ Windows::Foundation::Numerics::float4 plane)
-	{
-		// plane definded by ax+by+cz+d = 0 avec a=plane.x / b=plane.y / c= plane.z / d=plane.w
-		float3 Normalized_normal = normalize(normal);
-		plane.x = Normalized_normal.x;
-		plane.y = Normalized_normal.y;
-		plane.z = Normalized_normal.z;
-		plane.w = -dot(Point, Normalized_normal);
-	}
-
-	void AppMain::IntersectionLinePlane(_In_ float3 p1, float3 p2, float4 plane, _Out_ float3 inters)
-	{
-		float3 diff = p1 - p2;
-		float Denominator = plane.x * diff.x + plane.y * diff.y + plane.z * diff.z;
-		if (Denominator == 0.0f)
-		{
-			inters = (p1 + p2) * 0.5f;
-		}
-		else
-		{ 
-			float u = (plane.x * p1.x + plane.y * p1.y + plane.z * p1.z + plane.w) / Denominator;
-			inters = (p1 + u * (p2 - p1));
-		}
 	}
 
 
@@ -360,7 +300,8 @@ namespace ComputeOnDevice
 
 			float3 Chess_position_camera_view_space = { float(xa), float(ya), float(za)};
 
-			;
+			dbg::trace(L"Chess_position_camera_view_space");
+			dbg::trace(L"%f %f %f", Chess_position_camera_view_space.x, Chess_position_camera_view_space.y, Chess_position_camera_view_space.z);
 
 			vector<Point3f> spaceP;
 			spaceP.push_back(Point3f(Chess_position_camera_view_space.x, Chess_position_camera_view_space.y, Chess_position_camera_view_space.z));
@@ -406,7 +347,8 @@ namespace ComputeOnDevice
 				
 				Chess_position_world_space =  { float(z3.at<double>(0, 0)), float(z3.at<double>(1, 0)) , float(z3.at<double>(2, 0)) };
 
-				
+				dbg::trace(L" Chess_position_world_space");
+				dbg::trace(L"%f %f %f", Chess_position_world_space.x, Chess_position_world_space.y, Chess_position_world_space.z);
 				
 
 				_isPoolDetected = true;
@@ -587,7 +529,7 @@ namespace ComputeOnDevice
 
 			}
 
-			} 
+			}
 			*/
 
 
@@ -597,7 +539,7 @@ namespace ComputeOnDevice
 
 
 
-	void AppMain::ProcessBalls(Mat frame, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Perception::Spatial::SpatialCoordinateSystem^ CameraCoordinateSystem, Mat tvec_world_i, Mat R_world_i, Windows::Foundation::Numerics::float4x4 CameraViewTransform, Windows::Foundation::Numerics::float4x4 CameraToWorld)
+	void AppMain::ProcessBalls(Mat frame, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Perception::Spatial::SpatialCoordinateSystem^ CameraCoordinateSystem, Mat tvec_world_i, Mat R_world_i, Windows::Foundation::Numerics::float4x4 CameraViewTransform)
 	{
 
 
@@ -623,6 +565,8 @@ namespace ComputeOnDevice
 		}
 
 		
+
+
 
 
 		
@@ -697,74 +641,40 @@ namespace ComputeOnDevice
 
 		int bestball = 0;
 		float bestDotProduct = -1.0f;
-		ball_found = false;
-		float3 BallPositionInCameraSpace = { 0,0,0 };
+		bool ball_found = false;
 
 		for (size_t i = 0; i < contours.size(); i++)
 		{
-			convexHull(Mat(contours[i]), hull[i]);
-			approxPolyDP(hull[i], contours_poly[i], 3, true);
-			minEnclosingCircle(contours_poly[i], center[i], radius[i]);
+		convexHull(Mat(contours[i]), hull[i]);
+		approxPolyDP(hull[i], contours_poly[i], 3, true);
+		minEnclosingCircle(contours_poly[i], center[i], radius[i]);
 
-			// Calculate the vector towards the center of the ball.
-			Windows::Foundation::Point centerOfBall_frame = { center[i].x,center[i].y };
-			float2 const centerOfBall = cameraIntrinsics->UnprojectAtUnitDepth(centerOfBall_frame);
-			float3 const vectorTowardscenter = normalize(float3{centerOfBall.x, centerOfBall.y, -1.0f });
+		// Calculate the vector towards the center of the ball.
+		Windows::Foundation::Point centerOfBall_frame = { center[i].x,center[i].y };
+		float2 const centerOfBall = cameraIntrinsics->UnprojectAtUnitDepth(centerOfBall_frame);
+		float3 const vectorTowardscenter = normalize(float3{centerOfBall.x, centerOfBall.y, -1.0f });
 
-			// Get the dot product between the vector towards the face and the gaze vector.
-			// The closer the dot product is to 1.0, the closer the face is to the middle of the video image.
-			float const dotFaceWithGaze = dot(vectorTowardscenter, -float3::unit_z());
+		// Get the dot product between the vector towards the face and the gaze vector.
+		// The closer the dot product is to 1.0, the closer the face is to the middle of the video image.
+		float const dotFaceWithGaze = dot(vectorTowardscenter, -float3::unit_z());
 
-			// Pick the ball that best matches the users gaze.
-			if (dotFaceWithGaze > bestDotProduct && radius[i]<maxRadius && radius[i]>MinRadius)
-			{
-				bestDotProduct = dotFaceWithGaze;
-				bestball = i;
-				ball_found = true;
-			}
+		// Pick the ball that best matches the users gaze.
+		if (dotFaceWithGaze > bestDotProduct && radius[i]<maxRadius && radius[i]>MinRadius)
+		{
+		bestDotProduct = dotFaceWithGaze;
+		bestball = i;
+		ball_found = true;
+		}
 		}
 
+
 		
-		// Calculate the vector towards the center of the ball.
-		Windows::Foundation::Point centerOfBall_frame = { center[bestball].x,center[bestball].y };
-		float2 const centerOfBall = cameraIntrinsics->UnprojectAtUnitDepth(centerOfBall_frame);
-		float3 const vectorTowardscenter = normalize(float3{ centerOfBall.x, centerOfBall.y, -1.0f });
-
-		// Estimate depth anf ball position in world space
-		constexpr float BallWidthInMeters = 0.045f;
-		float const estimatedBallDepth = ((cameraIntrinsics->FocalLength.x+cameraIntrinsics->FocalLength.y)/2.0f)*BallWidthInMeters / static_cast<float>(2 * radius[bestball]);
-		//float3 const BallPositionInCameraSpace = vectorTowardscenter * estimatedBallDepth;
-		BallPositionInCameraSpace = vectorTowardscenter * estimatedBallDepth;
-
-		dbg::trace(L"BallPositionCameraSpace");
-		dbg::trace(L"%f %f %f", BallPositionInCameraSpace.x, BallPositionInCameraSpace.y, BallPositionInCameraSpace.z);
-
-		Mat tvec_world(3, 1, cv::DataType<double>::type);
-		Mat R_world(3, 3, cv::DataType<double>::type);
-
-		tvec_world.at<double>(0, 0) = CameraToWorld.m41;
-		tvec_world.at<double>(1, 0) = CameraToWorld.m42;
-		tvec_world.at<double>(2, 0) = CameraToWorld.m43;
-
-		R_world.at<double>(0, 0) = CameraToWorld.m11;
-		R_world.at<double>(1, 0) = CameraToWorld.m12;
-		R_world.at<double>(2, 0) = CameraToWorld.m13;
-		R_world.at<double>(0, 1) = CameraToWorld.m21;
-		R_world.at<double>(1, 1) = CameraToWorld.m22;
-		R_world.at<double>(2, 1) = CameraToWorld.m23;
-		R_world.at<double>(0, 2) = CameraToWorld.m31;
-		R_world.at<double>(1, 2) = CameraToWorld.m32;
-		R_world.at<double>(2, 2) = CameraToWorld.m33;
 
 
-		Mat Ball1(3, 1, cv::DataType<double>::type);
-		Ball1.at<double>(0, 0) = BallPositionInCameraSpace.x;
-		Ball1.at<double>(1, 0) = BallPositionInCameraSpace.y;
-		Ball1.at<double>(2, 0) = BallPositionInCameraSpace.z;
+		//float3 Chess_position_camera_space = transform(Chess_position_world_space, WorldToCamera);
 
-		Mat Ball2 = R_world * Ball1 + tvec_world;
 
-		BallPositionInWorldSpace = { float(Ball2.at<double>(0, 0)), float(Ball2.at<double>(1, 0)) , float(Ball2.at<double>(2, 0)) };
+		//float3 Chess_position_cameraview_space = transform(Chess_position_camera_space, CameraViewTransform);
 
 		Mat tvec_cam(3, 1, cv::DataType<double>::type); // translation vector extrisics camera 
 		Mat R_cam(3, 3, cv::DataType<double>::type); //rotation vector extrisics camera 
@@ -783,6 +693,8 @@ namespace ComputeOnDevice
 		R_cam.at<double>(1, 2) = CameraViewTransform.m32;
 		R_cam.at<double>(2, 2) = CameraViewTransform.m33;
 
+
+		
 
 		Mat p1(3, 1, cv::DataType<double>::type);
 		p1.at<double>(0, 0) = double(pocket_world_space[0].x);
@@ -830,8 +742,7 @@ namespace ComputeOnDevice
 		Point3f p5c = { float(p5b.at<double>(0, 0)), -float(p5b.at<double>(1, 0)), -float(p5b.at<double>(2, 0)) };
 		Point3f p6c = { float(p6b.at<double>(0, 0)), -float(p6b.at<double>(1, 0)), -float(p6b.at<double>(2, 0)) };
 
-		Point3f b = { BallPositionInCameraSpace.x , -BallPositionInCameraSpace.y , -BallPositionInCameraSpace.z };
-
+	
 		vector <Point3f> pocket_points_camera_view_space;
 		pocket_points_camera_view_space.push_back(p1c);
 		pocket_points_camera_view_space.push_back(p2c);
@@ -840,35 +751,33 @@ namespace ComputeOnDevice
 		pocket_points_camera_view_space.push_back(p5c);
 		pocket_points_camera_view_space.push_back(p6c);
 
-		pocket_points_camera_view_space.push_back(b);
-
 		vector<Point2f> pocket_points_frame;
 
 		Mat tvec_0(3, 1, CV_64F, double(0)); // translation vector extrisics camera 
 		Mat R_0(3, 3, CV_64F); //rotation vector extrisics camera 
 		cv::setIdentity(R_0);
 		projectPoints(pocket_points_camera_view_space, R_0, tvec_0, cameraMatrix, distCoeffs, pocket_points_frame);
-		//circle(frame, pocket_points_frame[0], 50, Scalar(255, 255, 255), 2);
-		//circle(frame, pocket_points_frame[1], 50, Scalar(255, 255, 255), 2);
-		//circle(frame, pocket_points_frame[2], 50, Scalar(255, 255, 255), 2);
-		//circle(frame, pocket_points_frame[3], 50, Scalar(255, 255, 255), 2);
-		//circle(frame, pocket_points_frame[4], 50, Scalar(255, 255, 255), 2);
-		//circle(frame, pocket_points_frame[5], 50, Scalar(255, 255, 255), 2);
+		circle(frame, pocket_points_frame[0], 50, Scalar(255, 255, 255), 2);
+		circle(frame, pocket_points_frame[1], 50, Scalar(255, 255, 255), 2);
+		circle(frame, pocket_points_frame[2], 50, Scalar(255, 255, 255), 2);
+		circle(frame, pocket_points_frame[3], 50, Scalar(255, 255, 255), 2);
+		circle(frame, pocket_points_frame[4], 50, Scalar(255, 255, 255), 2);
+		circle(frame, pocket_points_frame[5], 50, Scalar(255, 255, 255), 2);
 
-		circle(frame, pocket_points_frame[6], 20, Scalar(255, 255, 255), 5);
-		
 	
+
+
 		if (ball_found)
 		{
-			//draw circle
-			circle(frame, center[bestball], (int)radius[bestball], color_ball, 2, 8, 0);
-			// draw trajectory lines
-			//line(frame, pocket_points_frame[0], center[bestball], Scalar(0, 0, 0), 3);
-			//line(frame, pocket_points_frame[1], center[bestball], Scalar(0, 0, 0), 3);
-			//line(frame, pocket_points_frame[2], center[bestball], Scalar(0, 0, 0), 3);
-			//line(frame, pocket_points_frame[3], center[bestball], Scalar(0, 0, 0), 3);
-			//line(frame, pocket_points_frame[4], center[bestball], Scalar(0, 0, 0), 3);
-			//line(frame, pocket_points_frame[5], center[bestball], Scalar(0, 0, 0), 3);
+		//draw circle
+		circle(frame, center[bestball], (int)radius[bestball], color_ball, 2, 8, 0);
+		// draw trajectory lines
+		line(frame, pocket_points_frame[0], center[bestball], Scalar(0, 0, 0), 3);
+		line(frame, pocket_points_frame[1], center[bestball], Scalar(0, 0, 0), 3);
+		line(frame, pocket_points_frame[2], center[bestball], Scalar(0, 0, 0), 3);
+		line(frame, pocket_points_frame[3], center[bestball], Scalar(0, 0, 0), 3);
+		line(frame, pocket_points_frame[4], center[bestball], Scalar(0, 0, 0), 3);
+		line(frame, pocket_points_frame[5], center[bestball], Scalar(0, 0, 0), 3);
 		}
 
 	}
@@ -887,6 +796,10 @@ namespace ComputeOnDevice
 		bool m_transform_ready = true;
 
 	
+		
+
+		
+
 		for (auto& r : _slateRendererList)
 		{
 			r->Update(
@@ -916,7 +829,6 @@ namespace ComputeOnDevice
 			return;
 		}
 
-
 		_latestSelectedCameraTimestamp = latestFrame->Timestamp;
 
 		//cameraIntrinsics contains the camera parameters
@@ -931,44 +843,11 @@ namespace ComputeOnDevice
 	
 		Windows::Foundation::Numerics::float4x4 CameraToWorld;
 
-		float3 CameraPositionWorldSpace = float3{ -CameraToWorld.m41, -CameraToWorld.m42, -CameraToWorld.m43 };
-		dbg::trace(L"position");
-		dbg::trace(L"%f %f %f", CameraPositionWorldSpace.x, CameraPositionWorldSpace.y, CameraPositionWorldSpace.z);
-
 		HolographicFramePrediction^ prediction = holographicFrame->CurrentPrediction;
-		if(_isActiveRenderer)
-			AttachedCoordinateSystem = m_reference_attached_Frame->GetStationaryCoordinateSystemAtTimestamp(prediction->Timestamp);
-		
-		// Back buffers can change from frame to frame. Validate each buffer, and recreate
-		// resource views and depth buffers as needed.
-		//m_deviceResources->EnsureCameraResources(holographicFrame, prediction);
-
-		Windows::Perception::PerceptionTimestamp^ Timestamp = prediction->Timestamp;
-
-		SpatialLocation^ sp = m_locator->TryLocateAtTimestamp(Timestamp,m_WorldCoordinateSystem);
-		
-		float3 position2 = sp->Position;
-		quaternion orientation = sp->Orientation;
-
-		dbg::trace(L"position2");
-		dbg::trace(L"%f %f %f", position2.x, position2.y, position2.z);
+		SpatialCoordinateSystem^ currentCoordinateSystem = m_reference_attached_Frame->GetStationaryCoordinateSystemAtTimestamp(prediction->Timestamp);
+		SpatialCoordinateSystem^ currentCoordinateSystem2 = m_referenceFrame->CoordinateSystem;
 
 
-
-		/*
-		const auto tryTransformm2 = CameraCoordinateSystem->TryGetTransformTo(AttachedCoordinateSystem);
-		if (tryTransformm2 != nullptr)
-		{
-			Windows::Foundation::Numerics::float4x4 CamToAttached = tryTransformm2->Value;
-
-			dbg::trace(L"CamToAttached");
-			dbg::trace(L"%f %f %f", CamToAttached.m11, CamToAttached.m12, CamToAttached.m13);
-			dbg::trace(L"%f %f %f", CamToAttached.m21, CamToAttached.m22, CamToAttached.m23);
-			dbg::trace(L"%f %f %f", CamToAttached.m31, CamToAttached.m32, CamToAttached.m33);
-			dbg::trace(L"%f %f %f", CamToAttached.m41, CamToAttached.m42, CamToAttached.m43);
-
-		}
-		*/
 		
 		const auto tryTransform = CameraCoordinateSystem->TryGetTransformTo(m_WorldCoordinateSystem);
 		CameraToWorld = tryTransform->Value;
@@ -1133,90 +1012,35 @@ namespace ComputeOnDevice
 		tvec_world_i.at<double>(2, 0) = -tvec_world.at<double>(2, 0);
 
 		cv::Mat frame;
-		
+		/*
+		dbg::trace(L"tvec");
+	    dbg::trace(L"%f %f %f", tvec_cam.at<double>(0, 0), tvec_cam.at<double>(0, 1), tvec_cam.at<double>(0, 2));
+
+		dbg::trace(L"R");
+		dbg::trace(L"%f %f %f", R_cam.at<double>(0, 0), R_cam.at<double>(0,1), R_cam.at<double>(0, 2));
+		dbg::trace(L"%f %f %f", R_cam.at<double>(1, 0), R_cam.at<double>(1, 1), R_cam.at<double>(1, 2));
+		dbg::trace(L"%f %f %f", R_cam.at<double>(2, 0), R_cam.at<double>(2, 1), R_cam.at<double>(2, 2));
+		*/
 
 		rmcv::WrapHoloLensSensorFrameWithCvMat(
 			latestFrame, frame);
 
-		
-		if (m_transform_ready && _isActiveRenderer)
+
+		if (m_transform_ready)
 		{
-			if (_isPoolDetected == false)
-			{
-				DetectPoolTable(frame, CameraCoordinateSystem, cameraIntrinsics, tvec_cam, R_cam, CameraToWorld);
-			}
-			else 
-			{ 
-				ProcessBalls(frame, cameraIntrinsics, CameraCoordinateSystem, tvec_world_i, R_world_i, CameraViewTransform, CameraToWorld);
-				if (ball_found)
-				{ 
-					/*
-					const auto tryTransformm = m_WorldCoordinateSystem->TryGetTransformTo(AttachedCoordinateSystem);
-					if (tryTransformm != nullptr)
-					{   
-						
-
-						
-						Windows::Foundation::Numerics::float4x4 WorldToAttached = tryTransformm->Value;
-						Mat tvec_attached(3, 1, cv::DataType<double>::type);
-						Mat R_attached(3, 3, cv::DataType<double>::type);
-
-						tvec_attached.at<double>(0, 0) = WorldToAttached.m41;
-						tvec_attached.at<double>(1, 0) = WorldToAttached.m42;
-						tvec_attached.at<double>(2, 0) = WorldToAttached.m43;
-
-						R_attached.at<double>(0, 0) = WorldToAttached.m11;
-						R_attached.at<double>(1, 0) = WorldToAttached.m12;
-						R_attached.at<double>(2, 0) = WorldToAttached.m13;
-						R_attached.at<double>(0, 1) = WorldToAttached.m21;
-						R_attached.at<double>(1, 1) = WorldToAttached.m22;
-						R_attached.at<double>(2, 1) = WorldToAttached.m23;
-						R_attached.at<double>(0, 2) = WorldToAttached.m31;
-						R_attached.at<double>(1, 2) = WorldToAttached.m32;
-						R_attached.at<double>(2, 2) = WorldToAttached.m33;
-
-						Mat Ball_world_space(3, 1, cv::DataType<double>::type);
-						Ball_world_space.at<double>(0, 0) = BallPositionInWorldSpace.x;
-						Ball_world_space.at<double>(1, 0) = BallPositionInWorldSpace.y;
-						Ball_world_space.at<double>(2, 0) = BallPositionInWorldSpace.z;
-
-						//Mat Ball_attached_space = R_attached * Ball_world_space + tvec_attached;
-
-						float3 BallPositionAttachedCoordSystem = float3{ float(Ball_attached_space.at<double>(0, 0)), float(Ball_attached_space.at<double>(1, 0)), float(Ball_attached_space.at<double>(2, 0)) };
-						dbg::trace(L"BallPositionAttachedCoordSystem");
-						dbg::trace(L"%f %f %f", BallPositionAttachedCoordSystem.x, BallPositionAttachedCoordSystem.y, BallPositionAttachedCoordSystem.z);
-						
-
-						float x = - (DistanceRenderedFrameFromUser * BallPositionAttachedCoordSystem.x / BallPositionAttachedCoordSystem.z)*cameraIntrinsics->FocalLength.x + frame.cols/2.f ;
-						float y = + (DistanceRenderedFrameFromUser * BallPositionAttachedCoordSystem.y / BallPositionAttachedCoordSystem.z)*cameraIntrinsics->FocalLength.y + frame.rows/2.f ;
-						circle(frame, Point2f{x,y}, 30, Scalar(255, 255, 255),2);
-						
-
-						dbg::trace(L"BallPosition");
-						dbg::trace(L"%f %f ", x, y);
-
-					}
-					*/
-
-					frame = 0.f*frame;
-					float3 BallPositionRenderedFrame3D;
-					IntersectionLinePlane(CameraPositionWorldSpace, BallPositionInWorldSpace, plane_rendered_frame, BallPositionRenderedFrame3D);
-					float x = frame.cols / 2.0f + (BallPositionRenderedFrame3D - center_plane_rendered_frame).x*cameraIntrinsics->FocalLength.x;
-					float y = frame.rows / 2.0f + (BallPositionRenderedFrame3D - center_plane_rendered_frame).y*cameraIntrinsics->FocalLength.y;
-					circle(frame, Point2f{ x,y }, 30, Scalar(255, 255, 255), 2);
-
-					dbg::trace(L"BallPosition");
-					dbg::trace(L"%f %f ", x, y);
-				}
-			}
+			//if (_isPoolDetected == false)
+			//{
+			//DetectPoolTable(frame, CameraCoordinateSystem, cameraIntrinsics, tvec_cam, R_cam, CameraToWorld);
+			//}
+			//ProcessBalls(frame, cameraIntrinsics, CameraCoordinateSystem, tvec_world_i, R_world_i, CameraViewTransform);
 		}
-		
+
 		
 		// Quantize the hue to 30 levels
 		// and the saturation to 32 levels
+		//int hbins = 30;
 		//int histSize[] = { hbins };
 		// hue varies from 0 to 179, see cvtColor
-		//int hbins = 30;
 		//float hranges[] = { 0, 180 };
 		//const float* ranges[] = { hranges };
 		//MatND hist;
@@ -1230,7 +1054,134 @@ namespace ComputeOnDevice
 
 		//double maxVal = 0;
 		//minMaxLoc(hist, 0, &maxVal, 0, 0);
-	
+		
+		/*
+		if (m_table_anchor != nullptr)
+		{
+		const auto tryT = anchorSpace->TryGetTransformTo(CameraCoordinateSystem);
+
+		if (tryT!=nullptr)
+		{
+		Windows::Foundation::Numerics::float4x4 AnchorSpaceToCamCoordinateSystem = tryT->Value;
+
+
+
+		Mat tvec_anchor(3, 1, cv::DataType<double>::type);
+		Mat R_anchor(3, 3, cv::DataType<double>::type);
+
+		tvec_anchor.at<double>(0, 0) = AnchorSpaceToCamCoordinateSystem.m14;
+		tvec_anchor.at<double>(1, 0) = AnchorSpaceToCamCoordinateSystem.m24;
+		tvec_anchor.at<double>(2, 0) = AnchorSpaceToCamCoordinateSystem.m34;
+
+		R_anchor.at<double>(0, 0) = AnchorSpaceToCamCoordinateSystem.m11;
+		R_anchor.at<double>(1, 0) = AnchorSpaceToCamCoordinateSystem.m21;
+		R_anchor.at<double>(2, 0) = AnchorSpaceToCamCoordinateSystem.m31;
+		R_anchor.at<double>(0, 1) = AnchorSpaceToCamCoordinateSystem.m12;
+		R_anchor.at<double>(1, 1) = AnchorSpaceToCamCoordinateSystem.m22;
+		R_anchor.at<double>(2, 1) = AnchorSpaceToCamCoordinateSystem.m32;
+		R_anchor.at<double>(0, 2) = AnchorSpaceToCamCoordinateSystem.m13;
+		R_anchor.at<double>(1, 2) = AnchorSpaceToCamCoordinateSystem.m23;
+		R_anchor.at<double>(2, 2) = AnchorSpaceToCamCoordinateSystem.m33;
+
+		float3 anchor_a = { 0,0,0 };
+		//float3 anchor_b = transform(anchor_a, AnchorSpaceToCamCoordinateSystem);
+
+		Mat anchor_c(3, 1, cv::DataType<double>::type);
+		anchor_c.at<double>(0, 0) = anchor_a.x;
+		anchor_c.at<double>(1, 0) = anchor_a.y;
+		anchor_c.at<double>(2, 0) = anchor_a.z;
+
+		Mat anchor_d = R_anchor * anchor_c + tvec_anchor;
+
+		Mat anchor_e = R_cam * anchor_d + tvec_cam;
+
+		Point3f anchor_f = { float(anchor_e.at<double>(0, 0)), float(anchor_e.at<double>(1, 0)), float(anchor_e.at<double>(2, 0)) };
+
+
+
+
+
+		Point3f p1 = world_pocket_point0;
+
+		Mat m1(3, 1, cv::DataType<double>::type);
+		m1.at<double>(0, 0) = p1.x;
+		m1.at<double>(1, 0) = p1.y;
+		m1.at<double>(2, 0) = p1.z;
+
+		Mat m1c = R_world_i * m1 + tvec_world_i;
+
+		Mat m1v = R_cam * m1c + tvec_cam;
+
+		Point3f m1f = { float(m1v.at<double>(0, 0)), float(m1v.at<double>(1, 0)), float(m1v.at<double>(2, 0)) };
+
+		vector <Point3f> pocket_points_camera_view_space;
+		pocket_points_camera_view_space.push_back(m1f);
+
+		pocket_points_camera_view_space.push_back(anchor_f);
+
+		vector<Point2f> pocket_points_frame;
+
+		Mat tvec_0(3, 1, CV_64F, double(0));
+		Mat R_0(3, 3, CV_64F);
+		cv::setIdentity(R_0);
+		projectPoints(pocket_points_camera_view_space, R_0, tvec_0, cameraMatrix, distCoeffs, pocket_points_frame);
+		circle(frame, pocket_points_frame[0], 50, Scalar(255, 255, 255), 2);
+		circle(frame, pocket_points_frame[1], 200, Scalar(255, 255, 255), 2);
+
+
+		}
+		else
+		cv::blur(frame, frame, cv::Size(20, 20));
+		}
+		else
+		cv::blur(frame, frame, cv::Size(20, 20));
+
+		/*
+
+		/*
+		if (_isPoolDetected == false)
+		{
+		cv::blur(frame, frame, cv::Size(20, 20));
+		}
+		else
+		{
+		ProcessBalls(frame, cameraIntrinsics, CameraCoordinateSystem, tvec_cam, R_cam, tvec_world_i, R_world_i);
+		}
+
+
+		*/
+
+		/*
+		if (_isPoolDetected == true)
+		{
+		const auto tryTransform = anchorSpace->TryGetTransformTo(CameraCoordinateSystem);
+		const auto tryTransform2 = anchorSpace->TryGetTransformTo(m_WorldCoordinateSystem);
+
+		if (tryTransform != nullptr)
+		{
+		float4x4 AnchorSpaceToCameraCoordinateSystem;
+		AnchorSpaceToCameraCoordinateSystem = tryTransform->Value;
+		float3 point_anchor = (float(0.), float(0.), float(0.));
+		float3 point_camera = transform(point_anchor, AnchorSpaceToCameraCoordinateSystem);
+		Windows::Foundation::Point point_frame = cameraIntrinsics->ProjectOntoFrame(point_camera);
+		cv::Point2f final_point = (point_frame.X, point_frame.Y);
+		circle(wrappedImage, final_point, 20, Scalar(100, 200, 1), 5);
+		}
+
+		else
+		{
+		float4x4 AnchorSpaceToWorldCoordinateSystem;
+		AnchorSpaceToWorldCoordinateSystem = tryTransform2->Value;
+		float3 point_anchor = (float(0.), float(0.), float(0.));
+		float3 point_world = transform(point_anchor, AnchorSpaceToWorldCoordinateSystem);
+		float3 point_camera = transform(point_world, OriginToFrame);
+		Windows::Foundation::Point point_frame = cameraIntrinsics->ProjectOntoFrame(point_camera);
+		cv::Point2f final_point = (point_frame.X, point_frame.Y);
+		circle(wrappedImage, final_point, 20, Scalar(100, 200, 1), 5);
+		}
+
+		}
+		*/
 
 		
 		
@@ -1287,9 +1238,10 @@ namespace ComputeOnDevice
 		}
 		*/
 
-		
+		double a = double(frame.rows) / (cameraIntrinsics->FocalLength.x);
 
-	
+		dbg::trace(L"%f %f %f %f", a, cameraIntrinsics->FocalLength.y, cameraIntrinsics->PrincipalPoint.x, cameraIntrinsics->PrincipalPoint.y);
+
 		
 
 		//Update 2D texture to suit with blurredPVCameraImage
@@ -1326,79 +1278,6 @@ namespace ComputeOnDevice
 		}
 	}
 
-
-
-	void AppMain::OnLocatabilityChanged(SpatialLocator^ sender, Object^ args)
-	{
-		switch (sender->Locatability)
-		{
-		case SpatialLocatability::Unavailable:
-			// Holograms cannot be rendered.
-		{
-			Platform::String^ message = L"Warning! Positional tracking is " +
-				sender->Locatability.ToString() + L".\n";
-			OutputDebugStringW(message->Data());
-		}
-		break;
-
-		// In the following three cases, it is still possible to place holograms using a
-		// SpatialLocatorAttachedFrameOfReference.
-		case SpatialLocatability::PositionalTrackingActivating:
-			// The system is preparing to use positional tracking.
-
-		case SpatialLocatability::OrientationOnly:
-			// Positional tracking has not been activated.
-			break;
-
-		case SpatialLocatability::PositionalTrackingInhibited:
-			// Positional tracking is temporarily inhibited. User action may be required
-			// in order to restore positional tracking.
-			break;
-
-		case SpatialLocatability::PositionalTrackingActive:
-			// Positional tracking is active. World-locked content can be rendered.
-			break;
-		}
-	}
-
-	void AppMain::OnCameraAdded(
-		HolographicSpace^ sender,
-		HolographicSpaceCameraAddedEventArgs^ args
-	)
-	{
-		Deferral^ deferral = args->GetDeferral();
-		HolographicCamera^ holographicCamera = args->Camera;
-		create_task([this, deferral, holographicCamera]()
-		{
-			// Create device-based resources for the holographic camera and add it to the list of
-			// cameras used for updates and rendering. Notes:
-			//   * Since this function may be called at any time, the AddHolographicCamera function
-			//     waits until it can get a lock on the set of holographic camera resources before
-			//     adding the new camera. At 60 frames per second this wait should not take long.
-			//   * A subsequent Update will take the back buffer from the RenderingParameters of this
-			//     camera's CameraPose and use it to create the ID3D11RenderTargetView for this camera.
-			//     Content can then be rendered for the HolographicCamera.
-			m_deviceResources->AddHolographicCamera(holographicCamera);
-
-			// Holographic frame predictions will not include any information about this camera until
-			// the deferral is completed.
-			deferral->Complete();
-		});
-	}
-
-	void AppMain::OnCameraRemoved(
-		HolographicSpace^ sender,
-		HolographicSpaceCameraRemovedEventArgs^ args
-	)
-	{
-		// Before letting this callback return, ensure that all references to the back buffer
-		// are released.
-		// Since this function may be called at any time, the RemoveHolographicCamera function
-		// waits until it can get a lock on the set of holographic camera resources before
-		// deallocating resources for this camera. At 60 frames per second this wait should
-		// not take long.
-		m_deviceResources->RemoveHolographicCamera(args->Camera);
-	}
 
 
 	// Notifies classes that use Direct3D device resources that the device resources

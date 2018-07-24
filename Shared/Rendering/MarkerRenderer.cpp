@@ -21,6 +21,36 @@ namespace Rendering
         CreateDeviceDependentResources();
     }
 
+
+
+	// This function uses a SpatialPointerPose to position the world-locked hologram
+	// two meters in front of the user's heading.
+	void MarkerRenderer::PositionHologram(
+		Windows::UI::Input::Spatial::SpatialPointerPose^ pointerPose)
+	{
+		if (pointerPose != nullptr)
+		{
+			using Windows::Foundation::Numerics::float3;
+
+			// Get the gaze direction relative to the given coordinate system.
+			const float3 headPosition = pointerPose->Head->Position;
+			const float3 headDirection = pointerPose->Head->ForwardDirection;
+			float3 const headBack = -headDirection;
+			float3 const headUp = pointerPose->Head->UpDirection;
+			float3 const headRight = cross(headDirection, headUp);
+
+			// The hologram is positioned two meters along the user's gaze direction.
+			constexpr float distanceFromUser = 2.0f; // meters
+			const float3 gazeAtTwoMeters = headPosition + (distanceFromUser * headDirection);
+
+			// This will be used as the translation component of the hologram's
+			// model transform.
+			SetPosition(gazeAtTwoMeters);
+
+		}
+	}
+
+
     // Called once per frame. Rotates the cube, and calculates and sets the model matrix
     // relative to the position transform indicated by hologramPositionTransform.
     void MarkerRenderer::Update(

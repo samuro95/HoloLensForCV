@@ -14,7 +14,7 @@
 #include "Common\StepTimer.h"
 #include "Common\DeviceResources.h"
 
-namespace ComputeOnDevice
+namespace HoloPool
 {
 	class AppMain : public Holographic::AppMainBase
 	{
@@ -48,28 +48,6 @@ namespace ComputeOnDevice
 
 
 	private:
-
-		// Asynchronously creates resources for new holographic cameras.
-		void OnCameraAdded(
-			Windows::Graphics::Holographic::HolographicSpace^ sender,
-			Windows::Graphics::Holographic::HolographicSpaceCameraAddedEventArgs^ args);
-
-		// Synchronously releases resources for holographic cameras that are no longer
-		// attached to the system.
-		void OnCameraRemoved(
-			Windows::Graphics::Holographic::HolographicSpace^ sender,
-			Windows::Graphics::Holographic::HolographicSpaceCameraRemovedEventArgs^ args);
-
-		// Used to notify the app when the positional tracking state changes.
-		void OnLocatabilityChanged(
-			Windows::Perception::Spatial::SpatialLocator^ sender,
-			Platform::Object^ args);
-
-		// Event registration tokens.
-		Windows::Foundation::EventRegistrationToken                     m_cameraAddedToken;
-		Windows::Foundation::EventRegistrationToken                     m_cameraRemovedToken;
-		Windows::Foundation::EventRegistrationToken                     m_locatabilityChangedToken;
-
 		// Initializes access to HoloLens sensors.
 		void StartHoloLensMediaFrameSourceGroup();
 
@@ -119,12 +97,14 @@ namespace ComputeOnDevice
 
         void DetectPoolTable(cv::Mat frame, Windows::Perception::Spatial::SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, cv::Mat tvec_cam, cv::Mat R_cam, Windows::Foundation::Numerics::float4x4 CameraToWorld);
 
-		void ProcessBalls(cv::Mat frame, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Perception::Spatial::SpatialCoordinateSystem^ CameraCoordinateSystem, cv::Mat tvec_world_i, cv::Mat R_world_i, Windows::Foundation::Numerics::float4x4 CameraViewTransform, Windows::Foundation::Numerics::float4x4 CameraToWorld);
+		void ProcessBalls(cv::Mat frame, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Perception::Spatial::SpatialCoordinateSystem^ CameraCoordinateSystem, cv::Mat tvec_world_i, cv::Mat R_world_i, Windows::Foundation::Numerics::float4x4 CameraViewTransform);
 
 		void sign(_In_ float x, _Out_ int res);
 
 		// Cached pointer to device resources.
 		std::shared_ptr<DX::DeviceResources>                            m_deviceResources;
+
+		Windows::Foundation::EventRegistrationToken                     m_locatabilityChangedToken;
 
 		// Indicates whether all resources necessary for rendering are ready.
 		bool m_isReadyToRender = false;
@@ -148,21 +128,6 @@ namespace ComputeOnDevice
 		Graphics::StepTimer                                                  m_timer;
 
 		std::vector<Windows::Foundation::Numerics::float3> pocket_world_space;
-		Windows::Foundation::Numerics::float3 BallPositionInWorldSpace;
-		bool ball_found;
-
-		//distance from the user of the rendered frame in meters
-		float DistanceRenderedFrameFromUser = 2.0f;
-
-		Windows::Perception::Spatial::SpatialCoordinateSystem^ AttachedCoordinateSystem;
-
-		void AppMain::ConstructPlaneFromPointNormal(_In_ Windows::Foundation::Numerics::float3 Point, Windows::Foundation::Numerics::float3 normal, _Out_ Windows::Foundation::Numerics::float4 plane);
-		
-		void AppMain::IntersectionLinePlane(_In_ Windows::Foundation::Numerics::float3 p1, Windows::Foundation::Numerics::float3 p2, Windows::Foundation::Numerics::float4 plane, _Out_ Windows::Foundation::Numerics::float3 inters);
-	
-		Windows::Foundation::Numerics::float4 plane_rendered_frame;
-
-		Windows::Foundation::Numerics::float3 center_plane_rendered_frame;
 
 	};
 }

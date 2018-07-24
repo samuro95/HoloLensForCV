@@ -23,6 +23,9 @@ namespace Rendering
 
         void ReleaseDeviceDependentResources();
 
+		void PositionHologram(
+			Windows::UI::Input::Spatial::SpatialPointerPose^ pointerPose);
+
         void Update(
             _In_ const Graphics::StepTimer& timer);
 
