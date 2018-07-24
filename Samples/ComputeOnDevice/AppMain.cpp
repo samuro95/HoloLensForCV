@@ -149,6 +149,13 @@ namespace ComputeOnDevice
 
 			const float3 headPosition = pointerPose->Head->Position;
 			const float3 headDirection = pointerPose->Head->ForwardDirection;
+			float3 const headBack = -headDirection;
+			float3 const headUp = pointerPose->Head->UpDirection;
+			float3 const headRight = cross(headDirection, headUp);
+
+			X_rendered_frame=headRigh;
+			Y_rendered_frame=-headUp;
+
 			constexpr float distanceFromUser = 2.0f; // meters
 			const float3 gazeAtTwoMeters = headPosition + (distanceFromUser * headDirection);
 
@@ -1201,12 +1208,20 @@ namespace ComputeOnDevice
 					frame = 0.f*frame;
 					float3 BallPositionRenderedFrame3D;
 					IntersectionLinePlane(CameraPositionWorldSpace, BallPositionInWorldSpace, plane_rendered_frame, BallPositionRenderedFrame3D);
-					float x = frame.cols / 2.0f + (BallPositionRenderedFrame3D - center_plane_rendered_frame).x*cameraIntrinsics->FocalLength.x;
-					float y = frame.rows / 2.0f + (BallPositionRenderedFrame3D - center_plane_rendered_frame).y*cameraIntrinsics->FocalLength.y;
-					circle(frame, Point2f{ x,y }, 30, Scalar(255, 255, 255), 2);
+					float x = dot(BallPositionRenderedFrame3D - center_plane_rendered_frame,X_rendered_frame);
+					float y = dot(BallPositionRenderedFrame3D - center_plane_rendered_frame,Y_rendered_frame);
+					float x_im = frame.cols / 2.0f + x*cameraIntrinsics->FocalLength.x;
+					float y_im = frame.rows / 2.0f + y*cameraIntrinsics->FocalLength.y;
+					
+
+					float l = Norm(BallPositionRenderedFrame3D-CameraPositionWorldSpace);
+					float L = Norm(BallPositionInWorldSpace-CameraPositionWorldSpace);
+					float r = l*ball_real_diameter/(2.f*L);
+					
+					circle(frame, Point2f{ x_im,y_im}, r , Scalar(255, 255, 255), 2);
 
 					dbg::trace(L"BallPosition");
-					dbg::trace(L"%f %f ", x, y);
+					dbg::trace(L"%f %f ", x_im, y_im);
 				}
 			}
 		}

@@ -149,6 +149,7 @@ namespace ComputeOnDevice
 
 		std::vector<Windows::Foundation::Numerics::float3> pocket_world_space;
 		Windows::Foundation::Numerics::float3 BallPositionInWorldSpace;
+	
 		bool ball_found;
 
 		//distance from the user of the rendered frame in meters
@@ -163,6 +164,11 @@ namespace ComputeOnDevice
 		Windows::Foundation::Numerics::float4 plane_rendered_frame;
 
 		Windows::Foundation::Numerics::float3 center_plane_rendered_frame;
+
+		Windows::Foundation::Numerics::float3 X_rendered_frame;
+		Windows::Foundation::Numerics::float3 Y_rendered_frame;
+
+		ball_real_diameter = 0.45;
 
 	};
 }
