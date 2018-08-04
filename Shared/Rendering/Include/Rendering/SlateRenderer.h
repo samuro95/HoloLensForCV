@@ -23,8 +23,7 @@ namespace Rendering
 
         void ReleaseDeviceDependentResources();
 
-        void Update(
-            _In_ const Graphics::StepTimer& timer);
+        void Update(_In_ Windows::UI::Input::Spatial::SpatialPointerPose^ pointerPose, const Graphics::StepTimer& timer);
 
         void Render(
             _In_ const Texture2DPtr& texture);
@@ -64,7 +63,18 @@ namespace Rendering
         // Variables used with the rendering loop.
         bool _loadingComplete = false;
 
-        Windows::Foundation::Numerics::float3 _position = { 0.f, 0.f, -2.f };
-        float _rotationInRadians;
+		float _rotationInRadiansX;
+        float _rotationInRadiansY;
+		float _rotationInRadiansZ;
+
+		// This is the rate at which the hologram position is interpolated (LERPed) to the current location.
+		const float                                         c_lerpRate = 3.0f;
+
+		Windows::Foundation::Numerics::float3               _targetPosition = { 0.f, 0.f, -2.f };
+		Windows::Foundation::Numerics::float3               _targetUp = { 0.f, 1.f, 0.f };
+		Windows::Foundation::Numerics::float3               _targetForward = { 0.f, 0.f, -1.f };
+		Windows::Foundation::Numerics::float3               _position = { 0.f, 0.f, -2.f };
+		Windows::Foundation::Numerics::float3               _velocity = { 0.f, 0.f, 0.f };
+		Windows::Foundation::Numerics::float3               _normal = { 0.f, 0.f, 1.f };
     };
 }

@@ -16,7 +16,7 @@ namespace Rendering
     // Constant buffer used to send hologram position transform to the shader pipeline.
     struct SlateModelConstantBuffer
     {
-        DirectX::XMFLOAT4X4 model;
+		DirectX::XMFLOAT4X4 model;
     };
 
     // Assert that the constant buffer remains 16-byte aligned (best practice).

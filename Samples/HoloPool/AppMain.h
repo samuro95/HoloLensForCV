@@ -1,21 +1,9 @@
-//*********************************************************
-//
-// Copyright (c) Microsoft. All rights reserved.
-// This code is licensed under the MIT License (MIT).
-// THIS CODE IS PROVIDED *AS IS* WITHOUT WARRANTY OF
-// ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING ANY
-// IMPLIED WARRANTIES OF FITNESS FOR A PARTICULAR
-// PURPOSE, MERCHANTABILITY, OR NON-INFRINGEMENT.
-//
-//*********************************************************
-
 #pragma once
 
 #include "Common\StepTimer.h"
 #include "Common\DeviceResources.h"
 
-namespace HoloPool
-{
+namespace HoloPool {
 	class AppMain : public Holographic::AppMainBase
 	{
 	public:
@@ -48,6 +36,28 @@ namespace HoloPool
 
 
 	private:
+
+		// Asynchronously creates resources for new holographic cameras.
+		void OnCameraAdded(
+			Windows::Graphics::Holographic::HolographicSpace^ sender,
+			Windows::Graphics::Holographic::HolographicSpaceCameraAddedEventArgs^ args);
+
+		// Synchronously releases resources for holographic cameras that are no longer
+		// attached to the system.
+		void OnCameraRemoved(
+			Windows::Graphics::Holographic::HolographicSpace^ sender,
+			Windows::Graphics::Holographic::HolographicSpaceCameraRemovedEventArgs^ args);
+
+		// Used to notify the app when the positional tracking state changes.
+		void OnLocatabilityChanged(
+			Windows::Perception::Spatial::SpatialLocator^ sender,
+			Platform::Object^ args);
+
+		// Event registration tokens.
+		Windows::Foundation::EventRegistrationToken                     m_cameraAddedToken;
+		Windows::Foundation::EventRegistrationToken                     m_cameraRemovedToken;
+		Windows::Foundation::EventRegistrationToken                     m_locatabilityChangedToken;
+
 		// Initializes access to HoloLens sensors.
 		void StartHoloLensMediaFrameSourceGroup();
 
@@ -95,16 +105,15 @@ namespace HoloPool
 
 		Windows::Perception::Spatial::SpatialCoordinateSystem^ m_WorldCoordinateSystem;
 
-        void DetectPoolTable(cv::Mat frame, Windows::Perception::Spatial::SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, cv::Mat tvec_cam, cv::Mat R_cam, Windows::Foundation::Numerics::float4x4 CameraToWorld);
+        void DetectPoolTable(cv::Mat frame, Windows::Perception::Spatial::SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Foundation::Numerics::float4x4 CameraToWorld);
 
-		void ProcessBalls(cv::Mat frame, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Perception::Spatial::SpatialCoordinateSystem^ CameraCoordinateSystem, cv::Mat tvec_world_i, cv::Mat R_world_i, Windows::Foundation::Numerics::float4x4 CameraViewTransform);
+		void DetectTargetBall(cv::Mat frame, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Perception::Spatial::SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Foundation::Numerics::float4x4 CameraToWorld);
 
-		void sign(_In_ float x, _Out_ int res);
+		void DetectWhiteBall(cv::Mat frame, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Perception::Spatial::SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Foundation::Numerics::float4x4 CameraToWorld);
+
 
 		// Cached pointer to device resources.
 		std::shared_ptr<DX::DeviceResources>                            m_deviceResources;
-
-		Windows::Foundation::EventRegistrationToken                     m_locatabilityChangedToken;
 
 		// Indicates whether all resources necessary for rendering are ready.
 		bool m_isReadyToRender = false;
@@ -121,14 +130,72 @@ namespace HoloPool
 
 		Windows::Foundation::Numerics::float3 Chess_position_world_space;
 
-		void AppMain::m_transform(double x_in, double y_in, double z_in, Windows::Foundation::Numerics::float4x4 Transform, double x_out, double y_out, double z_out);
+		
 
 		bool m_WorldCoordinateSystem_Set;
 
 		Graphics::StepTimer                                                  m_timer;
 
 		std::vector<Windows::Foundation::Numerics::float3> pocket_world_space;
+		
+		Windows::Foundation::Numerics::float3 WhiteBallPositionInWorldSpace;
 
+		Windows::Foundation::Numerics::float3 TargetBallPositionInWorldSpace;
+	
+		bool ball_found;
+		bool white_ball_found;
+		int counter = 0;
+
+		bool target_ball_found = false;
+		//distance from the user of the rendered frame in meters
+		float DistanceRenderedFrameFromUser = 2.0f;
+
+		
+
+		Windows::Foundation::Numerics::float3 AppMain::m_transform(Windows::Foundation::Numerics::float3 In, Windows::Foundation::Numerics::float4x4 Transform);
+
+		Windows::Foundation::Numerics::float4 AppMain::ConstructPlaneFromPointNormal(Windows::Foundation::Numerics::float3 Point, Windows::Foundation::Numerics::float3 normal);
+		
+		Windows::Foundation::Numerics::float3 AppMain::IntersectionLinePlane(_In_ Windows::Foundation::Numerics::float3 p1, Windows::Foundation::Numerics::float3 p2, Windows::Foundation::Numerics::float4 plane);
+
+		Windows::Foundation::Numerics::float3 AppMain::IntersectionLinePointVectorPlane(_In_ Windows::Foundation::Numerics::float3 p1, Windows::Foundation::Numerics::float3 vector, Windows::Foundation::Numerics::float4 plane);
+	
+		Windows::Foundation::Numerics::float4 plane_frame_world_space;
+		Windows::Foundation::Numerics::float3 normal_plane_world_space;
+		Windows::Foundation::Numerics::float3 normal_plane_attached_space;
+
+		Windows::Foundation::Numerics::float3 normal_plane_camera_space;
+		Windows::Foundation::Numerics::float4 plane_frame_camera_space;
+		Windows::Foundation::Numerics::float4 plane_frame_attached_space;
+
+		Windows::Foundation::Numerics::float3 center_plane_world_space;
+		Windows::Foundation::Numerics::float3 center_plane_camera_space;
+		Windows::Foundation::Numerics::float3 center_plane_attached_space;
+
+		Windows::Foundation::Numerics::float3 X_frame_world_space;
+
+		Windows::Foundation::Numerics::float3 Y_frame_world_space;
+
+		Windows::Foundation::Numerics::float3 X_frame_camera_space;
+
+		Windows::Foundation::Numerics::float3 Y_frame_camera_space;
+
+		Windows::Foundation::Numerics::float3 X_frame_attached_space;
+
+		Windows::Foundation::Numerics::float3 Y_frame_attached_space;
+
+		float ball_real_diameter = 0.045f;
+
+		Windows::Foundation::Numerics::float3 WhiteBallPositionInCameraSpace;
+
+		Windows::Foundation::Numerics::float3 TargetBallPositionInCameraSpace;
+	
+
+		Windows::Foundation::Point centerOfBall_frame;
+
+		Windows::Foundation::Numerics::float3 vectorTowardscenterWorldSpace;
+
+		
 	};
 }
 	

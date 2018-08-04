@@ -9,6 +9,7 @@
 //
 //*********************************************************
 
+using namespace Windows::Foundation::Numerics;
 #include "pch.h"
 
 namespace Rendering
@@ -33,20 +34,17 @@ namespace Rendering
             // Get the gaze direction relative to the given coordinate system.
             const float3 headPosition = pointerPose->Head->Position;
             const float3 headDirection = pointerPose->Head->ForwardDirection;
-			float3 const headBack = -headDirection;
-			float3 const headUp = pointerPose->Head->UpDirection;
-			float3 const headRight = cross(headDirection, headUp);
 
             // The hologram is positioned two meters along the user's gaze direction.
             constexpr float distanceFromUser = 2.0f; // meters
-            const float3 gazeAtTwoMeters = headPosition + (distanceFromUser * headDirection ) ;
+            const float3 gazeAtTwoMeters = headPosition + (distanceFromUser * headDirection);
 
             // This will be used as the translation component of the hologram's
             // model transform.
             SetPosition(gazeAtTwoMeters);
 
             // The hologram is rotated towards the user
-            _rotationInRadians = std::atan2(
+            _rotationInRadiansY = std::atan2(
                 headDirection.z,
                 headDirection.x) + DirectX::XM_PIDIV2;
         }
@@ -54,13 +52,53 @@ namespace Rendering
 
     // Called once per frame. Rotates the cube, and calculates and sets the model matrix
     // relative to the position transform indicated by hologramPositionTransform.
-    void SlateRenderer::Update(
-        _In_ const Graphics::StepTimer& /* timer */)
+    void SlateRenderer::Update(Windows::UI::Input::Spatial::SpatialPointerPose^ pointerPose, const Graphics::StepTimer& /* timer */)
     {
+		if (pointerPose != nullptr)
+		{
+			using Windows::Foundation::Numerics::float3;
+			// Get the gaze direction relative to the given coordinate system.
+			const float3 headPosition = pointerPose->Head->Position;
+			const float3 headDirection = pointerPose->Head->ForwardDirection;
+
+			// The hologram is positioned two meters along the user's gaze direction.
+			constexpr float distanceFromUser = 2.0f; // meters
+			const float3 gazeAtTwoMeters = headPosition + (distanceFromUser * headDirection);
+
+			// This will be used as the translation component of the hologram's
+			// model transform.
+			SetPosition(gazeAtTwoMeters);
+
+			// The hologram is rotated towards the user
+			_rotationInRadiansY = std::atan2(
+				headDirection.z,
+				headDirection.x) + DirectX::XM_PIDIV2;
+
+			if (headDirection.z>=0)
+				_rotationInRadiansX = -std::atan2(headDirection.y,headDirection.z) ;
+			if (headDirection.z<0)
+				_rotationInRadiansX = std::atan2(headDirection.y, headDirection.z) + DirectX::XM_PI;
+		}
+
         // Rotate the cube.
         // Convert degrees to radians, then convert seconds to rotation angle.
-        const float    radians = static_cast<float>(fmod(_rotationInRadians, DirectX::XM_2PI));
-        const DirectX::XMMATRIX modelRotation = DirectX::XMMatrixRotationY(-radians);
+        const float    radiansX = static_cast<float>(fmod(_rotationInRadiansX, DirectX::XM_2PI));
+        const DirectX::XMMATRIX modelRotationX = DirectX::XMMatrixRotationX(0.f);
+
+		const float    radiansY = static_cast<float>(fmod(_rotationInRadiansY, DirectX::XM_2PI));
+		const DirectX::XMMATRIX modelRotationY = DirectX::XMMatrixRotationY(-radiansY);
+
+		DirectX::XMFLOAT4X4 rot;
+		XMStoreFloat4x4(&rot, modelRotationY);
+
+		dbg::trace(L"modelRotationY SlateRenderer");
+		dbg::trace(L"%f %f %f %f ", rot.m[1][1], rot.m[1][2], rot.m[1][3], rot.m[1][4]);
+		dbg::trace(L"%f %f %f %f ", rot.m[2][1], rot.m[2][2], rot.m[2][3], rot.m[2][4]);
+		dbg::trace(L"%f %f %f %f ", rot.m[3][1], rot.m[3][2], rot.m[3][3], rot.m[3][4]);
+		dbg::trace(L"%f %f %f %f ", rot.m[4][1], rot.m[4][2], rot.m[4][3], rot.m[4][4]);
+
+		const DirectX::XMMATRIX modelRotation = XMMatrixMultiply(modelRotationX, modelRotationY);
+
 
         // Position the cube.
         const DirectX::XMMATRIX modelTranslation = DirectX::XMMatrixTranslationFromVector(DirectX::XMLoadFloat3(&_position));

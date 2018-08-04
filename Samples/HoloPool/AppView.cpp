@@ -20,7 +20,7 @@
 int main(
     Platform::Array<Platform::String^>^)
 {
-    HoloPool::AppViewSource^ appViewSource =
+	HoloPool::AppViewSource^ appViewSource =
         ref new HoloPool::AppViewSource();
 
     Windows::ApplicationModel::Core::CoreApplication::Run(
@@ -29,8 +29,7 @@ int main(
     return 0;
 }
 
-namespace HoloPool
-{
+namespace HoloPool{
     Windows::ApplicationModel::Core::IFrameworkView^ AppViewSource::CreateView()
     {
         return ref new AppView();

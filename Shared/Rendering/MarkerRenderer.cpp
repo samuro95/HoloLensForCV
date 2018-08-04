@@ -22,19 +22,17 @@ namespace Rendering
     }
 
 
-
 	// This function uses a SpatialPointerPose to position the world-locked hologram
 	// two meters in front of the user's heading.
-	void MarkerRenderer::PositionHologram(
-		Windows::UI::Input::Spatial::SpatialPointerPose^ pointerPose)
+	void MarkerRenderer::PositionHologram(Windows::UI::Input::Spatial::SpatialPointerPose^ pointerPose)
 	{
 		if (pointerPose != nullptr)
 		{
 			using Windows::Foundation::Numerics::float3;
 
 			// Get the gaze direction relative to the given coordinate system.
-			const float3 headPosition = pointerPose->Head->Position;
-			const float3 headDirection = pointerPose->Head->ForwardDirection;
+			float3 const headPosition = pointerPose->Head->Position;
+			float3 const headDirection = pointerPose->Head->ForwardDirection;
 			float3 const headBack = -headDirection;
 			float3 const headUp = pointerPose->Head->UpDirection;
 			float3 const headRight = cross(headDirection, headUp);
