@@ -17,6 +17,7 @@ namespace Rendering
     struct SlateModelConstantBuffer
     {
 		DirectX::XMFLOAT4X4 model;
+		//Windows::Foundation::Numerics::float4x4 model;
     };
 
     // Assert that the constant buffer remains 16-byte aligned (best practice).
@@ -30,5 +31,8 @@ namespace Rendering
         DirectX::XMFLOAT3 pos;
         DirectX::XMFLOAT3 color;
         DirectX::XMFLOAT2 tex;
+		//Windows::Foundation::Numerics::float3 pos;
+		//Windows::Foundation::Numerics::float3 color;
+		//Windows::Foundation::Numerics::float2 tex;
     };
 }

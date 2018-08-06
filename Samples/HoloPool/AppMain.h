@@ -142,7 +142,6 @@ namespace HoloPool {
 
 		Windows::Foundation::Numerics::float3 TargetBallPositionInWorldSpace;
 	
-		bool ball_found;
 		bool white_ball_found;
 		int counter = 0;
 
@@ -184,7 +183,7 @@ namespace HoloPool {
 
 		Windows::Foundation::Numerics::float3 Y_frame_attached_space;
 
-		float ball_real_diameter = 0.045f;
+		float ball_real_diameter = 0.051f;
 
 		Windows::Foundation::Numerics::float3 WhiteBallPositionInCameraSpace;
 
@@ -195,6 +194,9 @@ namespace HoloPool {
 
 		Windows::Foundation::Numerics::float3 vectorTowardscenterWorldSpace;
 
+		Windows::Perception::Spatial::SpatialAnchor^ anchor;
+		
+		
 		
 	};
 }

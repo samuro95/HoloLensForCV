@@ -196,15 +196,7 @@ namespace HoloPool
 
 	void AppMain::OnSpatialInput(_In_ Windows::UI::Input::Spatial::SpatialInteractionSourceState^ pointerState) //On a click 
 	{
-		
-		if (counter % 3 == 0)
-			white_ball_found = false;
-		if (counter % 3 == 1)
-			target_ball_found = false; 
-		if (counter % 3 == 2)
-			target_ball_found = true;
-
-		counter = counter + 1;
+		target_ball_found = !target_ball_found;
 	}
 
 
@@ -531,7 +523,7 @@ namespace HoloPool
 			}
 		}
 
-		float BallWidthInMeters = 0.045f;
+		float BallWidthInMeters = 0.051f;
 		float const estimatedBallDepth = cameraIntrinsics->FocalLength.x * BallWidthInMeters / (2.0f * radius[bestball]);
 
 		float unproject_x = float((center[bestball].x - cameraIntrinsics->PrincipalPoint.x) / cameraIntrinsics->FocalLength.x);
@@ -641,23 +633,27 @@ namespace HoloPool
 				float unproject_y = float((center[white_ball].y - cameraIntrinsics->PrincipalPoint.y) / cameraIntrinsics->FocalLength.y);
 				float3 vectorTowardscenter_unormalized = float3{ unproject_x ,  -unproject_y , -1.0f };
 				vectorTowardscenter = normalize(vectorTowardscenter_unormalized);
-				float BallWidthInMeters = 0.045f;
+				float BallWidthInMeters = 0.051f;
 				float const estimatedBallDepth = cameraIntrinsics->FocalLength.x * BallWidthInMeters / (2.0f * radius[white_ball]);
 				WhiteBallPositionInCameraSpace = vectorTowardscenter * estimatedBallDepth;
 			}
 		i=i+1;
 		}
 			
-	WhiteBallPositionInWorldSpace = m_transform(WhiteBallPositionInCameraSpace,CameraToWorld);
-	cv::circle(frame, center[white_ball], (int)radius[white_ball], color_ball, 2, 8, 0);
+		WhiteBallPositionInWorldSpace = m_transform(WhiteBallPositionInCameraSpace,CameraToWorld);
+		cv::circle(frame, center[white_ball], (int)radius[white_ball], Scalar{ 0,255,0 }, 2, 8, 0);
 
-	float3 CameraPositionWorldSpace = m_transform(float3{ 0,0,0 },CameraToWorld);
+		dbg::trace(L"ca");
 
-	vectorTowardscenterWorldSpace =  normalize(m_transform(vectorTowardscenter,CameraToWorld));
+		float3 CameraPositionWorldSpace = m_transform(float3{ 0,0,0 },CameraToWorld);
+
+		vectorTowardscenterWorldSpace =  normalize(m_transform(vectorTowardscenter,CameraToWorld));
+
+		//anchor = SpatialAnchor::TryCreateRelativeTo(m_WorldCoordinateSystem, WhiteBallPositionInWorldSpace);
 
 	}
 
-
+	int count = 0;
 	void AppMain::OnUpdate(
 		_In_ Windows::Graphics::Holographic::HolographicFrame^ holographicFrame,
 		_In_ const Graphics::StepTimer& stepTimer)
@@ -685,6 +681,7 @@ namespace HoloPool
 		//Get latest frame
 		HoloLensForCV::SensorFrame^ latestFrame;
 
+
 		latestFrame =
 			_holoLensMediaFrameSourceGroup->GetLatestSensorFrame(
 				HoloLensForCV::SensorType::PhotoVideo);
@@ -711,7 +708,8 @@ namespace HoloPool
 
 		
 
-		float distanceFromUser = 1.15f; // meters
+		float distanceFromUser = 1.17f; // meters
+		//float distanceFromUser = 2.f; // meters
 
 		//Get the prediction of the position/orientation of the users's head, in a specified coodinate system, when the camera will be ready to render. 
 		HolographicFramePrediction^ prediction = holographicFrame->CurrentPrediction;
@@ -736,32 +734,46 @@ namespace HoloPool
 				float3 headRight = cross(headDirection, headUp);
 				float3 headBack = -headDirection;
 
-				
-				
 				float3 TargetPosition = headPosition + headDirection * distanceFromUser;
 
 				center_plane_world_space = TargetPosition;
 
-				dbg::trace(L"TargetPosition");
-				dbg::trace(L"%f %f %f ", TargetPosition.x, TargetPosition.y, TargetPosition.z);
+				//dbg::trace(L"TargetPosition");
+				//dbg::trace(L"%f %f %f ", TargetPosition.x, TargetPosition.y, TargetPosition.z);
 
 				float _rotationInRadiansY = std::atan2(headDirection.z,headDirection.x) + DirectX::XM_PIDIV2;
 				const float radiansY = static_cast<float>(fmod(_rotationInRadiansY, DirectX::XM_2PI));
 
 				float4x4 RotationRenderedPlane = make_float4x4_rotation_y(-radiansY);
 
-				dbg::trace(L"RotationRenderedPlane Calcul");
-				dbg::trace(L"%f %f %f %f ", RotationRenderedPlane.m11, RotationRenderedPlane.m12, RotationRenderedPlane.m13, RotationRenderedPlane.m14);
-				dbg::trace(L"%f %f %f %f ", RotationRenderedPlane.m21, RotationRenderedPlane.m22, RotationRenderedPlane.m23, RotationRenderedPlane.m24);
-				dbg::trace(L"%f %f %f %f ", RotationRenderedPlane.m31, RotationRenderedPlane.m32, RotationRenderedPlane.m33, RotationRenderedPlane.m34);
-				dbg::trace(L"%f %f %f %f ", RotationRenderedPlane.m41, RotationRenderedPlane.m42, RotationRenderedPlane.m43, RotationRenderedPlane.m44);
+				float4x4 trans = make_float4x4_translation(TargetPosition);
+
+
+				//dbg::trace(L"RotationRenderedPlane Calcul");
+				//dbg::trace(L"%f %f %f %f ", RotationRenderedPlane.m11, RotationRenderedPlane.m12, RotationRenderedPlane.m13, RotationRenderedPlane.m14);
+				//dbg::trace(L"%f %f %f %f ", RotationRenderedPlane.m21, RotationRenderedPlane.m22, RotationRenderedPlane.m23, RotationRenderedPlane.m24);
+				//dbg::trace(L"%f %f %f %f ", RotationRenderedPlane.m31, RotationRenderedPlane.m32, RotationRenderedPlane.m33, RotationRenderedPlane.m34);
+				//dbg::trace(L"%f %f %f %f ", RotationRenderedPlane.m41, RotationRenderedPlane.m42, RotationRenderedPlane.m43, RotationRenderedPlane.m44);
+
+				//dbg::trace(L"trans Calcul");
+				//dbg::trace(L"%f %f %f %f ", trans.m11, trans.m12, trans.m13, trans.m14);
+				//dbg::trace(L"%f %f %f %f ", trans.m21, trans.m22, trans.m23, trans.m24);
+				//dbg::trace(L"%f %f %f %f ", trans.m31, trans.m32, trans.m33, trans.m34);
+				//dbg::trace(L"%f %f %f %f ", trans.m41, trans.m42, trans.m43, trans.m44);
+				
+				float4x4 mul = trans * RotationRenderedPlane;
+
+				//dbg::trace(L"mul Calcul");
+				//dbg::trace(L"%f %f %f %f ", mul.m11, mul.m12, mul.m13, mul.m14);
+				//dbg::trace(L"%f %f %f %f ", mul.m21, mul.m22, mul.m23, mul.m24);
+				//dbg::trace(L"%f %f %f %f ", mul.m31, mul.m32, mul.m33, mul.m34);
+				//dbg::trace(L"%f %f %f %f ", mul.m41, mul.m42, mul.m43, mul.m44);
 
 				normal_plane_world_space = transform(float3{ 0,0,1 }, RotationRenderedPlane);
 				//normal_plane_world_space = headDirection;
 
 				X_frame_world_space = normalize(headRight);
 				Y_frame_world_space = cross(-normal_plane_world_space, X_frame_world_space);
-
 
 				plane_frame_world_space = ConstructPlaneFromPointNormal(center_plane_world_space, normal_plane_world_space);
 			}
@@ -788,40 +800,53 @@ namespace HoloPool
 		rmcv::WrapHoloLensSensorFrameWithCvMat(latestFrame, frame);
 
 		
-
-		
 		//Set the transform from the Camera Space to the World Space
 		
 		
 		
 		const auto tryTransformCtW = CameraCoordinateSystem->TryGetTransformTo(m_WorldCoordinateSystem);
 
-		const auto tryTransformCtA = CameraCoordinateSystem->TryGetTransformTo(AttachedCoordinateSystem);
-
-		const auto tryTransformWtA = m_WorldCoordinateSystem->TryGetTransformTo(AttachedCoordinateSystem);
-	
 		
-		if (tryTransformCtA != nullptr &&  tryTransformCtW != nullptr && _isActiveRenderer && pose != nullptr)
+		if (tryTransformCtW != nullptr)
 		{
-			Windows::Foundation::Numerics::float4x4 CameraToAttached = tryTransformCtA->Value;
 			Windows::Foundation::Numerics::float4x4 CameraToWorld = tryTransformCtW->Value;
-			Windows::Foundation::Numerics::float4x4 WorldToAttached = tryTransformWtA->Value;
+			
 
-			//if (!_isPoolDetected)
-			//{ 
-			//	//if the pool table has not been detected yet
-			//	DetectPoolTable(frame, CameraCoordinateSystem, cameraIntrinsics, CameraToWorld);
-			//}
-			//else
+			if (!_isPoolDetected)
+			{ 
+				//if the pool table has not been detected yet
+				DetectPoolTable(frame, CameraCoordinateSystem, cameraIntrinsics, CameraToWorld);
+			}
+			else
 			{ 
 				if (!white_ball_found)
 					DetectWhiteBall(frame, cameraIntrinsics, CameraCoordinateSystem, CameraToWorld);
 				if (!target_ball_found)
 					DetectTargetBall(frame, cameraIntrinsics, CameraCoordinateSystem, CameraToWorld);
 				if (white_ball_found && target_ball_found)
-
 				{
+					
 
+					//TargetBallPositionInWorldSpace = WhiteBallPositionInWorldSpace;
+					/*
+					{
+						if (anchor != nullptr)
+						{ 
+							SpatialCoordinateSystem^ anchorspace = anchor->CoordinateSystem;
+
+							const auto tryTransformAWBtW = anchorspace->TryGetTransformTo(m_WorldCoordinateSystem);
+							if (tryTransformAWBtW != nullptr)
+							{
+								Windows::Foundation::Numerics::float4x4 AnchorWBToWorld = tryTransformAWBtW->Value;
+								WhiteBallPositionInWorldSpace = m_transform(float3{ 0,0,0 }, AnchorWBToWorld);
+								dbg::trace(L"anchor");
+								dbg::trace(L"%f %f %f", WhiteBallPositionInWorldSpace.x,WhiteBallPositionInWorldSpace.y,WhiteBallPositionInWorldSpace.z);
+
+							}
+						}
+						*/
+
+					frame = 0.f * frame;
 					float3 CameraPositionWorldSpace = m_transform(float3{ 0.f,0.f,0.f }, CameraToWorld);
 
 					float3 WhiteBallPositionRenderedFrame3D = IntersectionLinePlane(CameraPositionWorldSpace, WhiteBallPositionInWorldSpace, plane_frame_world_space);
@@ -832,7 +857,7 @@ namespace HoloPool
 					float yw = dot(WhiteBallPositionRenderedFrame3D - center_plane_world_space, Y_frame_world_space);
 					float xw_im = frame.cols / 2.0f + xw*cameraIntrinsics->FocalLength.x;
 					float yw_im = frame.rows / 2.0f + yw*cameraIntrinsics->FocalLength.y;
-
+			
 					float xt = dot(TargetBallPositionRenderedFrame3D - center_plane_world_space, X_frame_world_space);
 					float yt = dot(TargetBallPositionRenderedFrame3D - center_plane_world_space, Y_frame_world_space);
 					float xt_im = frame.cols / 2.0f + xt * cameraIntrinsics->FocalLength.x;
@@ -850,6 +875,7 @@ namespace HoloPool
 					float r = (l*ball_real_diameter)/(2.f*L);
 
 					cv::circle(frame, Point2f{ xw_im,yw_im }, int(r*cameraIntrinsics->FocalLength.x), Scalar(255, 0, 0), 2);
+				
 					cv::circle(frame, Point2f{ xt_im,yt_im }, int(r*cameraIntrinsics->FocalLength.x), Scalar(0, 255, 0), 2);
 
 				}
@@ -858,19 +884,12 @@ namespace HoloPool
 		}
 		
 		
-		
-		
-		float3 test = center_plane_world_space + X_frame_world_space * 0.2f + Y_frame_world_space*0.1f;
-		float xtest = dot(test - center_plane_world_space, X_frame_world_space);
-		float ytest = dot(test - center_plane_world_space, Y_frame_world_space);
-		float x_imtest = frame.cols / 2.0f + xtest * cameraIntrinsics->FocalLength.x;
-		float y_imtest = frame.rows / 2.0f + ytest * cameraIntrinsics->FocalLength.y;
-		cv::circle(frame, Point2f{ x_imtest,y_imtest }, 20, Scalar(255, 0, 0), 2);
-
-		
-
-
-
+		count = count + 1; 
+		if (count == 20)
+		{ 
+			white_ball_found = false;
+			count = 0;
+		}
 	
 		cv::line(frame, Point2f{ 0.f,0.f }, Point2f{ float(frame.cols), 0.f }, Scalar(255, 255, 255), 2);
 		cv::line(frame, Point2f{ float(frame.cols), 0.f }, Point2f{ float(frame.cols), float(frame.rows) }, Scalar(255, 255, 255), 2);

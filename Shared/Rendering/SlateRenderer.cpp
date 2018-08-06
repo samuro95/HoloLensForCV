@@ -54,12 +54,17 @@ namespace Rendering
     // relative to the position transform indicated by hologramPositionTransform.
     void SlateRenderer::Update(Windows::UI::Input::Spatial::SpatialPointerPose^ pointerPose, const Graphics::StepTimer& /* timer */)
     {
+	
+		using namespace Windows::Foundation::Numerics;
+
+
 		if (pointerPose != nullptr)
 		{
-			using Windows::Foundation::Numerics::float3;
+			
 			// Get the gaze direction relative to the given coordinate system.
 			const float3 headPosition = pointerPose->Head->Position;
 			const float3 headDirection = pointerPose->Head->ForwardDirection;
+			const float3  headUp = pointerPose->Head->UpDirection;
 
 			// The hologram is positioned two meters along the user's gaze direction.
 			constexpr float distanceFromUser = 2.0f; // meters
@@ -78,42 +83,84 @@ namespace Rendering
 				_rotationInRadiansX = -std::atan2(headDirection.y,headDirection.z) ;
 			if (headDirection.z<0)
 				_rotationInRadiansX = std::atan2(headDirection.y, headDirection.z) + DirectX::XM_PI;
+		
+
+			// Rotate the cube.
+			// Convert degrees to radians, then convert seconds to rotation angle.
+			const float    radiansX = static_cast<float>(fmod(_rotationInRadiansX, DirectX::XM_2PI));
+			const DirectX::XMMATRIX modelRotationX = DirectX::XMMatrixRotationX(0.f);
+
+			const float    radiansY = static_cast<float>(fmod(_rotationInRadiansY, DirectX::XM_2PI));
+			const DirectX::XMMATRIX modelRotationY = DirectX::XMMatrixRotationY(-radiansY);
+
+			DirectX::XMFLOAT4X4 rot;
+			XMStoreFloat4x4(&rot, modelRotationY);
+
+			//dbg::trace(L"modelRotationY SlateRenderer");
+			//dbg::trace(L"%f %f %f %f ", rot.m[1][1], rot.m[1][2], rot.m[1][3], rot.m[1][4]);
+			//dbg::trace(L"%f %f %f %f ", rot.m[2][1], rot.m[2][2], rot.m[2][3], rot.m[2][4]);
+			//dbg::trace(L"%f %f %f %f ", rot.m[3][1], rot.m[3][2], rot.m[3][3], rot.m[3][4]);
+			//dbg::trace(L"%f %f %f %f ", rot.m[4][1], rot.m[4][2], rot.m[4][3], rot.m[4][4]);
+
+			const DirectX::XMMATRIX modelRotation = XMMatrixMultiply(modelRotationX, modelRotationY);
+
+			//dbg::trace(L"slate position");
+			//dbg::trace(L"%f %f %f ", _position.x, _position.y, _position.z);
+
+
+			// Position the cube.
+			const DirectX::XMMATRIX modelTranslation = DirectX::XMMatrixTranslationFromVector(DirectX::XMLoadFloat3(&_position));
+
+			DirectX::XMFLOAT4X4 trans;
+			XMStoreFloat4x4(&trans, modelTranslation);
+
+			//dbg::trace(L"modeltrans SlateRenderer");
+			//dbg::trace(L"%f %f %f %f ", trans.m[1][1], trans.m[1][2], trans.m[1][3], trans.m[1][4]);
+			//dbg::trace(L"%f %f %f %f ", trans.m[2][1], trans.m[2][2], trans.m[2][3], trans.m[2][4]);
+			//dbg::trace(L"%f %f %f %f ", trans.m[3][1], trans.m[3][2], trans.m[3][3], trans.m[3][4]);
+			//dbg::trace(L"%f %f %f %f ", trans.m[4][1], trans.m[4][2], trans.m[4][3], trans.m[4][4]);
+
+
+			// Multiply to get the transform matrix.
+			// Note that this transform does not enforce a particular coordinate system. The calling
+			// class is responsible for rendering this content in a consistent manner.
+       
+			const DirectX::XMMATRIX modelTransform = XMMatrixMultiply(modelRotation, modelTranslation);
+
+			// The view and projection matrices are provided by the system; they are associated
+			// with holographic cameras, and updated on a per-camera basis.
+			// Here, we provide the model transform for the sample hologram. The model transform
+			// matrix is transposed to prepare it for the shader.
+			XMStoreFloat4x4(&_modelConstantBufferData.model, DirectX::XMMatrixTranspose(modelTransform));
+
+			/*
+			dbg::trace(L"final SlateRenderer");
+			dbg::trace(L"%f %f %f %f ", _modelConstantBufferData.model.m[1][1], _modelConstantBufferData.model.m[1][2], _modelConstantBufferData.model.m[1][3], _modelConstantBufferData.model.m[1][4]);
+			dbg::trace(L"%f %f %f %f ", _modelConstantBufferData.model.m[2][1], _modelConstantBufferData.model.m[2][2], _modelConstantBufferData.model.m[2][3], _modelConstantBufferData.model.m[2][4]);
+			dbg::trace(L"%f %f %f %f ", _modelConstantBufferData.model.m[3][1], _modelConstantBufferData.model.m[3][2], _modelConstantBufferData.model.m[3][3], _modelConstantBufferData.model.m[3][4]);
+			dbg::trace(L"%f %f %f %f ", _modelConstantBufferData.model.m[4][1], _modelConstantBufferData.model.m[4][2], _modelConstantBufferData.model.m[4][3], _modelConstantBufferData.model.m[4][4]);
+			*/
+			float4x4 RotationRenderedPlane = make_float4x4_rotation_y(-radiansY);
+
+			float4x4 translation = make_float4x4_translation(_position);
+
+			float4x4 mul = transpose(translation * RotationRenderedPlane);
+
+			float4x4 const modelRotationTranslation = make_float4x4_world(_position, -headDirection, headUp);
+
+			float4x4 const modelScale = make_float4x4_scale({ 0.2f });
+
+			//_modelConstantBufferData.model = modelScale * modelRotationTranslation;
+
+			/*
+			_modelConstantBufferData.model= DirectX::XMFLOAT4X4(mul.m11, mul.m12, mul.m13, mul.m14,
+																mul.m21, mul.m22, mul.m33, mul.m44,
+																mul.m31, mul.m32, mul.m33, mul.m44,
+																mul.m41, mul.m42, mul.m33, mul.m44);
+																*/
+
+
 		}
-
-        // Rotate the cube.
-        // Convert degrees to radians, then convert seconds to rotation angle.
-        const float    radiansX = static_cast<float>(fmod(_rotationInRadiansX, DirectX::XM_2PI));
-        const DirectX::XMMATRIX modelRotationX = DirectX::XMMatrixRotationX(0.f);
-
-		const float    radiansY = static_cast<float>(fmod(_rotationInRadiansY, DirectX::XM_2PI));
-		const DirectX::XMMATRIX modelRotationY = DirectX::XMMatrixRotationY(-radiansY);
-
-		DirectX::XMFLOAT4X4 rot;
-		XMStoreFloat4x4(&rot, modelRotationY);
-
-		dbg::trace(L"modelRotationY SlateRenderer");
-		dbg::trace(L"%f %f %f %f ", rot.m[1][1], rot.m[1][2], rot.m[1][3], rot.m[1][4]);
-		dbg::trace(L"%f %f %f %f ", rot.m[2][1], rot.m[2][2], rot.m[2][3], rot.m[2][4]);
-		dbg::trace(L"%f %f %f %f ", rot.m[3][1], rot.m[3][2], rot.m[3][3], rot.m[3][4]);
-		dbg::trace(L"%f %f %f %f ", rot.m[4][1], rot.m[4][2], rot.m[4][3], rot.m[4][4]);
-
-		const DirectX::XMMATRIX modelRotation = XMMatrixMultiply(modelRotationX, modelRotationY);
-
-
-        // Position the cube.
-        const DirectX::XMMATRIX modelTranslation = DirectX::XMMatrixTranslationFromVector(DirectX::XMLoadFloat3(&_position));
-
-        // Multiply to get the transform matrix.
-        // Note that this transform does not enforce a particular coordinate system. The calling
-        // class is responsible for rendering this content in a consistent manner.
-        const DirectX::XMMATRIX modelTransform = XMMatrixMultiply(modelRotation, modelTranslation);
-
-        // The view and projection matrices are provided by the system; they are associated
-        // with holographic cameras, and updated on a per-camera basis.
-        // Here, we provide the model transform for the sample hologram. The model transform
-        // matrix is transposed to prepare it for the shader.
-        XMStoreFloat4x4(&_modelConstantBufferData.model, DirectX::XMMatrixTranspose(modelTransform));
-
         // Loading is asynchronous. Resources must be created before they can be updated.
         if (!_loadingComplete)
         {
@@ -132,6 +179,7 @@ namespace Rendering
             0,
             0
         );
+		
     }
 
     // Renders one frame using the vertex and pixel shaders.
