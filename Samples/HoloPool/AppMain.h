@@ -142,7 +142,7 @@ namespace HoloPool {
 
 		Windows::Foundation::Numerics::float3 TargetBallPositionInWorldSpace;
 	
-		bool white_ball_found;
+		bool white_ball_found = false;
 		int counter = 0;
 
 		bool target_ball_found = false;

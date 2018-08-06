@@ -528,7 +528,7 @@ namespace HoloPool
 
 		float unproject_x = float((center[bestball].x - cameraIntrinsics->PrincipalPoint.x) / cameraIntrinsics->FocalLength.x);
 		float unproject_y = float((center[bestball].y - cameraIntrinsics->PrincipalPoint.y) / cameraIntrinsics->FocalLength.y);
-		float3 vectorTowardscenter_unormalized = float3{ unproject_x ,  unproject_y , -1.0f };
+		float3 vectorTowardscenter_unormalized = float3{ unproject_x ,  -unproject_y , -1.0f };
 		float3 vectorTowardscenter = normalize(vectorTowardscenter_unormalized);
 		TargetBallPositionInCameraSpace = vectorTowardscenter * estimatedBallDepth;
 		TargetBallPositionInWorldSpace = m_transform(TargetBallPositionInCameraSpace, CameraToWorld);
@@ -649,10 +649,11 @@ namespace HoloPool
 
 		vectorTowardscenterWorldSpace =  normalize(m_transform(vectorTowardscenter,CameraToWorld));
 
-		//anchor = SpatialAnchor::TryCreateRelativeTo(m_WorldCoordinateSystem, WhiteBallPositionInWorldSpace);
+		anchor = SpatialAnchor::TryCreateRelativeTo(m_WorldCoordinateSystem, WhiteBallPositionInWorldSpace);
 
 	}
 
+	
 	int count = 0;
 	void AppMain::OnUpdate(
 		_In_ Windows::Graphics::Holographic::HolographicFrame^ holographicFrame,
@@ -812,26 +813,41 @@ namespace HoloPool
 			Windows::Foundation::Numerics::float4x4 CameraToWorld = tryTransformCtW->Value;
 			
 
-			if (!_isPoolDetected)
-			{ 
+			//if (!_isPoolDetected)
+			//{ 
 				//if the pool table has not been detected yet
-				DetectPoolTable(frame, CameraCoordinateSystem, cameraIntrinsics, CameraToWorld);
-			}
-			else
-			{ 
-				if (!white_ball_found)
-					DetectWhiteBall(frame, cameraIntrinsics, CameraCoordinateSystem, CameraToWorld);
+			//	DetectPoolTable(frame, CameraCoordinateSystem, cameraIntrinsics, CameraToWorld);
+			//}
+			//else
+			//{ 
 				if (!target_ball_found)
 					DetectTargetBall(frame, cameraIntrinsics, CameraCoordinateSystem, CameraToWorld);
-				if (white_ball_found && target_ball_found)
-				{
-					
 
-					//TargetBallPositionInWorldSpace = WhiteBallPositionInWorldSpace;
-					/*
+				if (target_ball_found)
+				{
+
+					
+					float3 CameraPositionWorldSpace = m_transform(float3{ 0.f,0.f,0.f }, CameraToWorld);
+					float3 TargetBallPositionRenderedFrame3D = IntersectionLinePlane(CameraPositionWorldSpace, TargetBallPositionInWorldSpace, plane_frame_world_space);
+
+					float xt = dot(TargetBallPositionRenderedFrame3D - center_plane_world_space, X_frame_world_space);
+					float yt = dot(TargetBallPositionRenderedFrame3D - center_plane_world_space, Y_frame_world_space);
+					float xt_im = frame.cols / 2.0f + xt * cameraIntrinsics->FocalLength.x;
+					float yt_im = frame.rows / 2.0f + yt * cameraIntrinsics->FocalLength.y;
+
+					float ltb = length(TargetBallPositionRenderedFrame3D - CameraPositionWorldSpace);
+					float Ltb = length(TargetBallPositionInWorldSpace - CameraPositionWorldSpace);
+					float rtb = (ltb*ball_real_diameter) / (2.f*Ltb);
+					Point2f TargetBallPositionRenderedFrame2D = Point2f{ xt_im,yt_im };
+					cv::circle(frame, TargetBallPositionRenderedFrame2D, int(rtb*cameraIntrinsics->FocalLength.x), Scalar(0, 255, 0), 2);
+
+					if (!white_ball_found && count < 30) 
+						DetectWhiteBall(frame, cameraIntrinsics, CameraCoordinateSystem, CameraToWorld);
+					else
 					{
+						frame = 0.f * frame;
 						if (anchor != nullptr)
-						{ 
+						{
 							SpatialCoordinateSystem^ anchorspace = anchor->CoordinateSystem;
 
 							const auto tryTransformAWBtW = anchorspace->TryGetTransformTo(m_WorldCoordinateSystem);
@@ -840,56 +856,39 @@ namespace HoloPool
 								Windows::Foundation::Numerics::float4x4 AnchorWBToWorld = tryTransformAWBtW->Value;
 								WhiteBallPositionInWorldSpace = m_transform(float3{ 0,0,0 }, AnchorWBToWorld);
 								dbg::trace(L"anchor");
-								dbg::trace(L"%f %f %f", WhiteBallPositionInWorldSpace.x,WhiteBallPositionInWorldSpace.y,WhiteBallPositionInWorldSpace.z);
-
+								dbg::trace(L"%f %f %f", WhiteBallPositionInWorldSpace.x, WhiteBallPositionInWorldSpace.y, WhiteBallPositionInWorldSpace.z);
 							}
 						}
-						*/
 
-					frame = 0.f * frame;
-					float3 CameraPositionWorldSpace = m_transform(float3{ 0.f,0.f,0.f }, CameraToWorld);
-
-					float3 WhiteBallPositionRenderedFrame3D = IntersectionLinePlane(CameraPositionWorldSpace, WhiteBallPositionInWorldSpace, plane_frame_world_space);
-
-					float3 TargetBallPositionRenderedFrame3D = IntersectionLinePlane(CameraPositionWorldSpace, TargetBallPositionInWorldSpace, plane_frame_world_space);
-
-					float xw = dot(WhiteBallPositionRenderedFrame3D - center_plane_world_space, X_frame_world_space);
-					float yw = dot(WhiteBallPositionRenderedFrame3D - center_plane_world_space, Y_frame_world_space);
-					float xw_im = frame.cols / 2.0f + xw*cameraIntrinsics->FocalLength.x;
-					float yw_im = frame.rows / 2.0f + yw*cameraIntrinsics->FocalLength.y;
-			
-					float xt = dot(TargetBallPositionRenderedFrame3D - center_plane_world_space, X_frame_world_space);
-					float yt = dot(TargetBallPositionRenderedFrame3D - center_plane_world_space, Y_frame_world_space);
-					float xt_im = frame.cols / 2.0f + xt * cameraIntrinsics->FocalLength.x;
-					float yt_im = frame.rows / 2.0f + yt * cameraIntrinsics->FocalLength.y;
-
-					dbg::trace(L"point in plane");
-					dbg::trace(L"%f", plane_frame_attached_space.x*WhiteBallPositionRenderedFrame3D.x + plane_frame_attached_space.y*WhiteBallPositionRenderedFrame3D.y + plane_frame_attached_space.z*WhiteBallPositionRenderedFrame3D.z + plane_frame_attached_space.w);
+						float3 WhiteBallPositionRenderedFrame3D = IntersectionLinePlane(CameraPositionWorldSpace, WhiteBallPositionInWorldSpace, plane_frame_world_space);
 					
-					dbg::trace(L"point in line");
-					dbg::trace(L"%f", dot(normalize(CameraPositionWorldSpace - WhiteBallPositionRenderedFrame3D), normalize(CameraPositionWorldSpace - WhiteBallPositionInWorldSpace)));
+						float xw = dot(WhiteBallPositionRenderedFrame3D - center_plane_world_space, X_frame_world_space);
+						float yw = dot(WhiteBallPositionRenderedFrame3D - center_plane_world_space, Y_frame_world_space);
+						float xw_im = frame.cols / 2.0f + xw*cameraIntrinsics->FocalLength.x;
+						float yw_im = frame.rows / 2.0f + yw*cameraIntrinsics->FocalLength.y;
 
-			
-					float l = length(WhiteBallPositionRenderedFrame3D - CameraPositionWorldSpace);
-					float L = length(WhiteBallPositionInWorldSpace - CameraPositionWorldSpace);
-					float r = (l*ball_real_diameter)/(2.f*L);
+								//dbg::trace(L"point in plane");
+								//dbg::trace(L"%f", plane_frame_attached_space.x*WhiteBallPositionRenderedFrame3D.x + plane_frame_attached_space.y*WhiteBallPositionRenderedFrame3D.y + plane_frame_attached_space.z*WhiteBallPositionRenderedFrame3D.z + plane_frame_attached_space.w);
 
-					cv::circle(frame, Point2f{ xw_im,yw_im }, int(r*cameraIntrinsics->FocalLength.x), Scalar(255, 0, 0), 2);
-				
-					cv::circle(frame, Point2f{ xt_im,yt_im }, int(r*cameraIntrinsics->FocalLength.x), Scalar(0, 255, 0), 2);
+								//dbg::trace(L"point in line");
+								//dbg::trace(L"%f", dot(normalize(CameraPositionWorldSpace - WhiteBallPositionRenderedFrame3D), normalize(CameraPositionWorldSpace - WhiteBallPositionInWorldSpace)));
 
+						float lw = length(WhiteBallPositionRenderedFrame3D - CameraPositionWorldSpace);
+						float Lw = length(WhiteBallPositionInWorldSpace - CameraPositionWorldSpace);
+						float rw = (lw*ball_real_diameter) / (2.f*Lw);
+						Point2f WhiteBallPositionRenderedFrame2D = Point2f{ xw_im,yw_im };
+						cv::circle(frame, WhiteBallPositionRenderedFrame2D, int(rw*cameraIntrinsics->FocalLength.x), Scalar(255, 0, 0), 2);
+
+						cv::line(frame, WhiteBallPositionRenderedFrame2D, TargetBallPositionRenderedFrame2D, Scalar(0, 0, 255), 1);
+
+						count = count + 1;
+
+					
+					}
 				}
-				
-			}
 		}
 		
 		
-		count = count + 1; 
-		if (count == 20)
-		{ 
-			white_ball_found = false;
-			count = 0;
-		}
 	
 		cv::line(frame, Point2f{ 0.f,0.f }, Point2f{ float(frame.cols), 0.f }, Scalar(255, 255, 255), 2);
 		cv::line(frame, Point2f{ float(frame.cols), 0.f }, Point2f{ float(frame.cols), float(frame.rows) }, Scalar(255, 255, 255), 2);
