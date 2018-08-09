@@ -78,30 +78,40 @@ int main() {
 
 
             // convert to green chromaticity
+            
+            frame.convertTo(frame, CV_64FC1);
+            frame = frame /255.f;
 
 
-            Mat gc = Mat(Size(frame.cols, frame.rows), CV_8UC1);
-            for (int i = 0; i < frame.rows; ++i)
+            vector<Mat> channels2(3);
+            cv::split(frame, channels2);
+            Mat B = channels2[0];
+            Mat G = channels2[1];
+            Mat R = channels2[2];
+            Mat I=R+B+G;
+
+            Mat gc = Mat(Size(G.cols, G.rows), CV_64FC1);
+            for (int i = 0 ; i < G.rows; ++i)
             {
-                for (int j = 0; j < frame.cols; ++j)
+                for (int j = 0 ; j < G.cols; ++j)
                 {
-                    Vec3b RGB = frame.at<Vec3b>(i, j);
-                    int G = RGB[1];
-                    int sRGB = int(RGB[0]) + int(RGB[1]) + int(RGB[2]);
-                    float g = float(G) / float(sRGB);
-                    gc.at<char>(i, j) = char(g * 255.0f);
+                    double g = G.at<double>(i, j);
+                    double r = R.at<double>(i, j);
+                    double b = B.at<double>(i, j);
+                    double sRGB = b+g+r;
+                    gc.at<double>(i, j) = (g/sRGB)*255;
                 }
             }
+            
+            
+            gc.convertTo(gc,CV_8UC1);
+           
+            blur(gc,gc, Size(5,5));
 
             Mat bg;
 
-            cout << gc;
+		    threshold(gc, bg, 0, 180, CV_THRESH_BINARY | CV_THRESH_OTSU);
 
-            blur(gc,gc, Size(5,5));
-
-            cout << gc;
-
-		    threshold(gc, bg, 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
 
 		    //Mat kernel = Mat::ones(Size(5, 5), CV_8UC1);
 		    //dilate(bg, bg, kernel);
@@ -111,7 +121,6 @@ int main() {
             vector<vector<Point> > contours;
             vector<Vec4i> hierarchy;
             findContours(bg, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
-            
             
             
             
@@ -201,7 +210,9 @@ int main() {
 
             //frame = aa*frame;
 
-            imshow("frame", gc);
+            
+
+            imshow("frame", frame);
         
             
         }
