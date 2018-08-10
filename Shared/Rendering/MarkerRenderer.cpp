@@ -51,9 +51,13 @@ namespace Rendering
 
     // Called once per frame. Rotates the cube, and calculates and sets the model matrix
     // relative to the position transform indicated by hologramPositionTransform.
-    void MarkerRenderer::Update(
-        _In_ const Graphics::StepTimer& /* timer */)
+    void MarkerRenderer::Update(Windows::Foundation::Numerics::float3 position, const Graphics::StepTimer& /* timer */)
     {
+		
+		using Windows::Foundation::Numerics::float3;
+
+		SetPosition(position);
+		
         // Position the marker.
         const auto modelTranslation =
             DirectX::XMMatrixTranslationFromVector(

@@ -26,8 +26,7 @@ namespace Rendering
 		void PositionHologram(
 			Windows::UI::Input::Spatial::SpatialPointerPose^ pointerPose);
 
-        void Update(
-            _In_ const Graphics::StepTimer& timer);
+        void Update(Windows::Foundation::Numerics::float3 position, const Graphics::StepTimer& timer);
 
         void Render();
 

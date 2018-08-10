@@ -32,7 +32,7 @@
 #include <concrt.h>
 #include <wincodec.h>
 #include <wrl.h>
-
+#include <time.h>
 
 #include <windows.graphics.directx.direct3d11.interop.h>
 #include <Collection.h>

@@ -62,8 +62,10 @@ namespace HoloPool {
 		void StartHoloLensMediaFrameSourceGroup();
 
 		std::vector<std::shared_ptr<Rendering::SlateRenderer> >_slateRendererList;
+		std::vector<std::shared_ptr<Rendering::MarkerRenderer> >_markerRendererList;
 		std::shared_ptr<Rendering::SlateRenderer> _currentSlateRenderer;
-		std::shared_ptr<Rendering::MarkerRenderer>  m_markerRenderer;
+		std::shared_ptr<Rendering::MarkerRenderer>  m_markerWhiteBall;
+		std::shared_ptr<Rendering::MarkerRenderer>  m_markerTargetBall;
 
 		// Selected HoloLens media frame source group
 		HoloLensForCV::MediaFrameSourceGroupType _selectedHoloLensMediaFrameSourceGroupType;
@@ -105,12 +107,15 @@ namespace HoloPool {
 
 		Windows::Perception::Spatial::SpatialCoordinateSystem^ m_WorldCoordinateSystem;
 
-        void DetectPoolTable(cv::Mat frame, Windows::Perception::Spatial::SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Foundation::Numerics::float4x4 CameraToWorld);
+        void DetectPoolTableChessBoard(cv::Mat frame, Windows::Perception::Spatial::SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Foundation::Numerics::float4x4 CameraToWorld);
+
+		void DetectPoolTable(cv::Mat frame);
 
 		void DetectTargetBall(cv::Mat frame, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Perception::Spatial::SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Foundation::Numerics::float4x4 CameraToWorld);
 
 		void DetectWhiteBall(cv::Mat frame, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Perception::Spatial::SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Foundation::Numerics::float4x4 CameraToWorld);
 
+		void DetectWhiteBall2(cv::Mat frame, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Perception::Spatial::SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Foundation::Numerics::float4x4 CameraToWorld);
 
 		// Cached pointer to device resources.
 		std::shared_ptr<DX::DeviceResources>                            m_deviceResources;
@@ -137,6 +142,7 @@ namespace HoloPool {
 		Graphics::StepTimer                                                  m_timer;
 
 		std::vector<Windows::Foundation::Numerics::float3> pocket_world_space;
+		std::vector<Windows::Foundation::Numerics::float3> p_world_space;
 		
 		Windows::Foundation::Numerics::float3 WhiteBallPositionInWorldSpace;
 
@@ -149,7 +155,7 @@ namespace HoloPool {
 		//distance from the user of the rendered frame in meters
 		float DistanceRenderedFrameFromUser = 2.0f;
 
-		
+		Windows::Foundation::Numerics::float4 AppMain::ConstructPlaneFromPoints(Windows::Foundation::Numerics::float3 Point0, Windows::Foundation::Numerics::float3 Point1, Windows::Foundation::Numerics::float3 Point2);
 
 		Windows::Foundation::Numerics::float3 AppMain::m_transform(Windows::Foundation::Numerics::float3 In, Windows::Foundation::Numerics::float4x4 Transform);
 
@@ -160,7 +166,11 @@ namespace HoloPool {
 		Windows::Foundation::Numerics::float3 AppMain::IntersectionLinePointVectorPlane(_In_ Windows::Foundation::Numerics::float3 p1, Windows::Foundation::Numerics::float3 vector, Windows::Foundation::Numerics::float4 plane);
 	
 		Windows::Foundation::Numerics::float4 plane_frame_world_space;
+		Windows::Foundation::Numerics::float4 plane_frame_world_space2;
+		Windows::Foundation::Numerics::float4 plane_frame_world_space3;
+		Windows::Foundation::Numerics::float4 plane_frame_world_space4;
 		Windows::Foundation::Numerics::float3 normal_plane_world_space;
+
 		Windows::Foundation::Numerics::float3 normal_plane_attached_space;
 
 		Windows::Foundation::Numerics::float3 normal_plane_camera_space;
@@ -168,6 +178,14 @@ namespace HoloPool {
 		Windows::Foundation::Numerics::float4 plane_frame_attached_space;
 
 		Windows::Foundation::Numerics::float3 center_plane_world_space;
+		Windows::Foundation::Numerics::float3 center_plane_world_space2;
+		Windows::Foundation::Numerics::float3 center_plane_world_space3;
+		Windows::Foundation::Numerics::float3 center_plane_world_space4;
+
+
+
+
+
 		Windows::Foundation::Numerics::float3 center_plane_camera_space;
 		Windows::Foundation::Numerics::float3 center_plane_attached_space;
 
@@ -196,7 +214,20 @@ namespace HoloPool {
 
 		Windows::Perception::Spatial::SpatialAnchor^ anchor;
 		
+		Windows::Foundation::Numerics::float4 pool_table_plane;
+
+		Windows::Foundation::Numerics::float3 CameraPositionWorldSpace;
 		
+		int count =0 ;
+
+		int AppMain::parametricIntersect(float r1, float t1, float r2, float t2, int *x, int *y);
+
+		bool ready_to_detect_chessboard = false;
+
+		time_t now;
+		
+	
+
 		
 	};
 }
