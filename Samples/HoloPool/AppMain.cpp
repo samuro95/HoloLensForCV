@@ -132,6 +132,40 @@ namespace HoloPool
 		
 	}
 
+	Windows::Foundation::Numerics::float4x4 AppMain::Invert_transform(Windows::Foundation::Numerics::float4x4 Transform)
+	{
+		Mat tvec(3, 1, cv::DataType<double>::type); // translation vector
+		Mat R(3, 3, cv::DataType<double>::type); //rotation vector 
+
+		Mat tR;
+
+		tvec.at<float>(0, 0) = Transform.m41;
+		tvec.at<float>(1, 0) = Transform.m42;
+		tvec.at<float>(2, 0) = Transform.m43;
+
+		R.at<float>(0, 0) = Transform.m11;
+		R.at<float>(1, 0) = Transform.m12;
+		R.at<float>(2, 0) = Transform.m13;
+		R.at<float>(0, 1) = Transform.m21;
+		R.at<float>(1, 1) = Transform.m22;
+		R.at<float>(2, 1) = Transform.m23;
+		R.at<float>(0, 2) = Transform.m31;
+		R.at<float>(1, 2) = Transform.m32;
+		R.at<float>(2, 2) = Transform.m33;
+
+		transpose(R, tR);
+		Mat tvec_inv = - tR * tvec;
+
+		
+		float4x4 Transform_inv = float4x4(tR.at<float>(0, 0), R.at<float>(1, 0), R.at<float>(2, 0),0.f,
+			R.at<float>(1, 0), R.at<float>(1, 1), R.at<float>(1, 2),0.f,
+			R.at<float>(2, 0), R.at<float>(2, 1), R.at<float>(2, 2),0.f,
+			tvec_inv.at<float>(0, 0), tvec_inv.at<float>(1, 0), tvec_inv.at<float>(2, 0),1.f);
+	
+		return Transform_inv;
+
+	}
+
 	//Find point (x,y) where two parameterized lines intersect :p Returns 0 if lines are parallel 
 	int AppMain::parametricIntersect(float r1, float t1, float r2, float t2, int *x, int *y) 
 	{
@@ -148,6 +182,30 @@ namespace HoloPool
 		else { //lines are parallel and will NEVER intersect!
 			return(0);
 		}
+	}
+
+	Point2f AppMain::OnRenderedFrame(bool Ball, Mat frame, Windows::Foundation::Numerics::float3 PointWorldSpace, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics)
+	{
+		float3 PointPositionRenderedFrame3D = IntersectionLinePlane(CameraPositionWorldSpace, PointWorldSpace, plane_frame_world_space);
+
+		float xt = dot(PointPositionRenderedFrame3D - center_plane_world_space, X_frame_world_space);
+		float yt = dot(PointPositionRenderedFrame3D - center_plane_world_space, Y_frame_world_space);
+		float xt_im = frame.cols / 2.0f + xt * cameraIntrinsics->FocalLength.x;
+		float yt_im = frame.rows / 2.0f + yt * cameraIntrinsics->FocalLength.y;
+
+		Point2f PointPositionRenderedFrame2D = Point2f{ xt_im,yt_im };
+		
+
+		if (Ball)
+		{
+			float ltb = length(PointPositionRenderedFrame3D - CameraPositionWorldSpace);
+			float Ltb = length(PointWorldSpace - CameraPositionWorldSpace);
+			float rtb = (ltb*ball_real_diameter) / (2.f*Ltb);
+
+			cv::circle(frame, PointPositionRenderedFrame2D, int(rtb*cameraIntrinsics->FocalLength.x), Scalar(0, 255, 0), 2);
+		}
+		return PointPositionRenderedFrame2D;
+
 	}
 
 
@@ -213,10 +271,25 @@ namespace HoloPool
 		m_markerTargetBall = std::make_shared<Rendering::MarkerRenderer>(_deviceResources);
 		m_markerWhiteBall = std::make_shared<Rendering::MarkerRenderer>(_deviceResources);
 
+		m_markerpocket1 = std::make_shared<Rendering::MarkerRenderer>(_deviceResources);
+		m_markerpocket2 = std::make_shared<Rendering::MarkerRenderer>(_deviceResources);
+		m_markerpocket3 = std::make_shared<Rendering::MarkerRenderer>(_deviceResources);
+		m_markerpocket4 = std::make_shared<Rendering::MarkerRenderer>(_deviceResources);
+		m_markerpocket5 = std::make_shared<Rendering::MarkerRenderer>(_deviceResources);
+		m_markerpocket6 = std::make_shared<Rendering::MarkerRenderer>(_deviceResources);
+		m_markerpocket7 = std::make_shared<Rendering::MarkerRenderer>(_deviceResources);
+
 		_slateRendererList.push_back(_currentSlateRenderer);
 		_markerRendererList.push_back(m_markerTargetBall);
 		_markerRendererList.push_back(m_markerWhiteBall);
-		dbg::trace(L"caca");
+		_markerRendererList.push_back(m_markerpocket1);
+		_markerRendererList.push_back(m_markerpocket2);
+		_markerRendererList.push_back(m_markerpocket3);
+		_markerRendererList.push_back(m_markerpocket4);
+		_markerRendererList.push_back(m_markerpocket5);
+		_markerRendererList.push_back(m_markerpocket6);
+		_markerRendererList.push_back(m_markerpocket7);
+		
 
 	}
 
@@ -225,21 +298,17 @@ namespace HoloPool
 	void AppMain::OnSpatialInput(_In_ Windows::UI::Input::Spatial::SpatialInteractionSourceState^ pointerState) //On a click 
 	{
 
-		
-		if (!ready_to_detect_chessboard)
+		if (order_airtap==0)
 			ready_to_detect_chessboard = !ready_to_detect_chessboard;
-		else
-		{	
-			time_t before = now;
-			time(&now);
-			double seconds = difftime(now, before);
-			if (seconds > 2)
-				target_ball_found = !target_ball_found;
-			else
-				white_ball_found = !white_ball_found;
+		if (order_airtap == 1)
+			ready_to_detect_target_ball = !ready_to_detect_target_ball;
+		if (order_airtap == 2)
+			ready_to_detect_white_ball = !ready_to_detect_white_ball;
+		if (order_airtap == 3)
+		{ 
+			ready_to_detect_white_ball = !ready_to_detect_white_ball;
+			ready_to_detect_target_ball = !ready_to_detect_target_ball;
 		}
-		
-	
 	}
 
 
@@ -347,6 +416,7 @@ namespace HoloPool
 	}
 		
 
+	
 
 	
 	//Detect the PoolTable pose through the ChessBoard, and sets the pocket positions in world space. 
@@ -376,23 +446,6 @@ namespace HoloPool
 		}
 
 
-		Mat tvec_world(3, 1, cv::DataType<double>::type);
-		Mat R_world(3, 3, cv::DataType<double>::type);
-
-		tvec_world.at<double>(0, 0) = CameraToWorld.m41;
-		tvec_world.at<double>(1, 0) = CameraToWorld.m42;
-		tvec_world.at<double>(2, 0) = CameraToWorld.m43;
-
-		R_world.at<double>(0, 0) = CameraToWorld.m11;
-		R_world.at<double>(1, 0) = CameraToWorld.m12;
-		R_world.at<double>(2, 0) = CameraToWorld.m13;
-		R_world.at<double>(0, 1) = CameraToWorld.m21;
-		R_world.at<double>(1, 1) = CameraToWorld.m22;
-		R_world.at<double>(2, 1) = CameraToWorld.m23;
-		R_world.at<double>(0, 2) = CameraToWorld.m31;
-		R_world.at<double>(1, 2) = CameraToWorld.m32;
-		R_world.at<double>(2, 2) = CameraToWorld.m33;
-
 		// ChessBoard Detection and Drawing  
 
 		Mat gray;
@@ -418,8 +471,11 @@ namespace HoloPool
 			vector<Point2f> image_point = corners; //Corner positions in the frame.
 
 			Mat rvec; //Rotation from Camera Space to Pool Table Space.
+			
 			Mat tvec; //Translation from Camera Space to Pool Table Space.
+			
 			solvePnP(object_point, image_point, cameraMatrix, distCoeffs, rvec, tvec); //Find the ChessBoard pose.  
+
 
 			//draw axis on the frame. 
 			float length = 2.0f;
@@ -435,191 +491,73 @@ namespace HoloPool
 			cv::line(frame, imagePoints[0], imagePoints[2], Scalar(0, 255, 0), 3);
 			cv::line(frame, imagePoints[0], imagePoints[3], Scalar(255, 0, 0), 3);
 
-			double square_size = 0.029; //the pose is given with the unit = a ChessBoard corner size.
+			double square_size = 0.025; 
+	
 
-			float3 Chess_origin_camera_space = { float(tvec.at<double>(0, 0)*square_size), float(tvec.at<double>(1, 0)*square_size), float(tvec.at<double>(2, 0)*square_size)};
-
-			Chess_position_world_space = m_transform(Chess_origin_camera_space, CameraToWorld);
-
-			Mat R;
+			Mat R, tR;
 			Rodrigues(rvec, R);
+			transpose(R, tR);
+
 
 			//Set Pool pockets posiotins in world space
-			float midlength_table = 1.17f;
-			float width_table = 1.17f;
+			float midlength_table = 1.15f;
+			float width_table = 1.11f;
 
 			//offset in meters between the chessBoard origin and the corner pocket. 
-			double offset_origin = 0.07 ; 
+			double offset_lenght = 0.06;
+			Mat offset(3, 1, cv::DataType<double>::type);
+			offset.at<double>(0, 0) = -offset_lenght;
+			offset.at<double>(1, 0) = -offset_lenght;
+			offset.at<double>(2, 0) = ball_real_diameter/2. ;
 
+			Mat tvec_transform = R * offset + tvec * square_size;
 
-			
-			Mat pocket1_table_space(3, 1, cv::DataType<double>::type);
-			pocket1_table_space.at<double>(0, 0) = -offset_origin / square_size;
-			pocket1_table_space.at<double>(1, 0) = -offset_origin / square_size;
-			pocket1_table_space.at<double>(2, 0) = 0.0;
+			float4x4 ChessToCamera = float4x4(float(tR.at<double>(0, 0)), -float(tR.at<double>(0, 1)), -float(tR.at<double>(0, 2)), 0.f,
+				float(tR.at<double>(1, 0)), -float(tR.at<double>(1, 1)), -float(tR.at<double>(1, 2)), 0.f,
+				float(tR.at<double>(2, 0)), -float(tR.at<double>(2, 1)), -float(tR.at<double>(2, 2)), 0.f,
+				float(tvec_transform.at<double>(0, 0)), -float(tvec_transform.at<double>(1, 0)), -float(tvec_transform.at<double>(2, 0)), 1.f);
 
-			Mat pocket1_camera_space = R * pocket1_table_space + tvec;
-			
-			pocket1_camera_space.at<double>(0, 0) = square_size * pocket1_camera_space.at<double>(0, 0);
-			pocket1_camera_space.at<double>(1, 0) = -square_size * pocket1_camera_space.at<double>(1, 0);
-			pocket1_camera_space.at<double>(2, 0) = -square_size * pocket1_camera_space.at<double>(2, 0);
+			ChessToWorld = operator* (ChessToCamera, CameraToWorld);
+			WorldToChess = Invert_transform(ChessToWorld);
 
-			Mat pocket1_world_space = R_world * pocket1_camera_space + tvec_world;
-
-			float3 pocket1_world_spacef = { float(pocket1_world_space.at<double>(0, 0)), float(pocket1_world_space.at<double>(1, 0)) , float(pocket1_world_space.at<double>(2, 0)) };
-
-			pocket_world_space.push_back(pocket1_world_spacef);
+			//pocket1
+			float3 pocket1_table_space = float3{ 0.f , 0.f , 0.f};
+			float3 pocket1_world_space = m_transform(pocket1_table_space, ChessToWorld);
+			pocket_world_space.push_back(pocket1_world_space);
 
 			//pocket2
-
-			Mat pocket2_table_space(3, 1, cv::DataType<double>::type);
-			pocket2_table_space.at<double>(0, 0) = -0.07 / square_size;
-			pocket2_table_space.at<double>(1, 0) = (-0.07 + midlength_table) / square_size;
-			pocket2_table_space.at<double>(2, 0) = 0.0;
-
-			Mat pocket2_camera_space = R * pocket2_table_space + tvec;
-
-			pocket2_camera_space.at<double>(0, 0) = square_size * pocket2_camera_space.at<double>(0, 0);
-			pocket2_camera_space.at<double>(1, 0) = -square_size * pocket2_camera_space.at<double>(1, 0);
-			pocket2_camera_space.at<double>(2, 0) = -square_size * pocket2_camera_space.at<double>(2, 0);
-
-			Mat pocket2_world_space = R_world * pocket2_camera_space + tvec_world;
-
-			float3 pocket2_world_spacef = { float(pocket2_world_space.at<double>(0, 0)), float(pocket2_world_space.at<double>(1, 0)) , float(pocket2_world_space.at<double>(2, 0)) };
-
-			pocket_world_space.push_back(pocket2_world_spacef);
+			float3 pocket2_table_space = float3{0.f , midlength_table, 0.f };
+			float3 pocket2_world_space = m_transform(pocket2_table_space, ChessToWorld);
+			pocket_world_space.push_back(pocket2_world_space);
 
 			//pocket3
-
-			Mat pocket3_table_space(3, 1, cv::DataType<double>::type);
-			pocket3_table_space.at<double>(0, 0) = -0.07 / square_size;
-			pocket3_table_space.at<double>(1, 0) = (-0.07 + 2*midlength_table) / square_size;
-			pocket3_table_space.at<double>(2, 0) = 0.0;
-
-			Mat pocket3_camera_space = R * pocket3_table_space + tvec;
-
-			pocket3_camera_space.at<double>(0, 0) = square_size * pocket3_camera_space.at<double>(0, 0);
-			pocket3_camera_space.at<double>(1, 0) = -square_size * pocket3_camera_space.at<double>(1, 0);
-			pocket3_camera_space.at<double>(2, 0) = -square_size * pocket3_camera_space.at<double>(2, 0);
-
-			Mat pocket3_world_space = R_world * pocket3_camera_space + tvec_world;
-
-			float3 pocket3_world_spacef = { float(pocket3_world_space.at<double>(0, 0)), float(pocket3_world_space.at<double>(1, 0)) , float(pocket3_world_space.at<double>(2, 0)) };
-
-			pocket_world_space.push_back(pocket3_world_spacef);
+			float3 pocket3_table_space = float3{ 0.f , 2 * midlength_table, 0.f };
+			float3 pocket3_world_space = m_transform(pocket3_table_space, ChessToWorld);
+			pocket_world_space.push_back(pocket3_world_space);
 
 			//pocket4
-
-			Mat pocket4_table_space(3, 1, cv::DataType<double>::type);
-			pocket4_table_space.at<double>(0, 0) = (-0.07 + width_table)/ square_size;
-			pocket4_table_space.at<double>(1, 0) = (-0.07 + 2 * midlength_table) / square_size;
-			pocket4_table_space.at<double>(2, 0) = 0.0;
-
-			Mat pocket4_camera_space = R * pocket4_table_space + tvec;
-
-			pocket4_camera_space.at<double>(0, 0) = square_size * pocket4_camera_space.at<double>(0, 0);
-			pocket4_camera_space.at<double>(1, 0) = -square_size * pocket4_camera_space.at<double>(1, 0);
-			pocket4_camera_space.at<double>(2, 0) = -square_size * pocket4_camera_space.at<double>(2, 0);
-
-			Mat pocket4_world_space = R_world * pocket4_camera_space + tvec_world;
-
-			float3 pocket4_world_spacef = { float(pocket4_world_space.at<double>(0, 0)), float(pocket4_world_space.at<double>(1, 0)) , float(pocket4_world_space.at<double>(2, 0)) };
-
-			pocket_world_space.push_back(pocket4_world_spacef);
+			float3 pocket4_table_space = float3{width_table , 2 * midlength_table, 0.f };
+			float3 pocket4_world_space = m_transform(pocket4_table_space, ChessToWorld);
+			pocket_world_space.push_back(pocket4_world_space);
 
 			//pocket5
-
-			Mat pocket5_table_space(3, 1, cv::DataType<double>::type);
-			pocket5_table_space.at<double>(0, 0) = 
-			pocket5_table_space.at<double>(1, 0) = (-0.07 + midlength_table) / square_size;
-			pocket5_table_space.at<double>(2, 0) = 0.0;
-
-			Mat pocket5_camera_space = R * pocket5_table_space + tvec;
-
-			pocket5_camera_space.at<double>(0, 0) = square_size * pocket5_camera_space.at<double>(0, 0);
-			pocket5_camera_space.at<double>(1, 0) = -square_size * pocket5_camera_space.at<double>(1, 0);
-			pocket5_camera_space.at<double>(2, 0) = -square_size * pocket5_camera_space.at<double>(2, 0);
-
-			Mat pocket5_world_space = R_world * pocket5_camera_space + tvec_world;
-
-			float3 pocket5_world_spacef = { float(pocket5_world_space.at<double>(0, 0)), float(pocket5_world_space.at<double>(1, 0)) , float(pocket5_world_space.at<double>(2, 0)) };
-
-			pocket_world_space.push_back(pocket5_world_spacef);
+			float3 pocket5_table_space = float3{width_table, midlength_table, 0.f };
+			float3 pocket5_world_space = m_transform(pocket5_table_space, ChessToWorld);
+			pocket_world_space.push_back(pocket5_world_space);
 			
 			//pocket6
+			float3 pocket6_table_space = float3{ width_table, 0.f ,  0.f };
+			float3 pocket6_world_space = m_transform(pocket6_table_space, ChessToWorld);
+			pocket_world_space.push_back(pocket6_world_space);
 
-			Mat pocket6_table_space(3, 1, cv::DataType<double>::type);
-			pocket6_table_space.at<double>(0, 0) = (-0.07 + width_table) / square_size;
-			pocket6_table_space.at<double>(1, 0) = -0.07  / square_size;
-			pocket6_table_space.at<double>(2, 0) = 0.0;
+			//pockettest
+			float3 pocket7_table_space = float3{ width_table, width_table ,  0.f };
+			float3 pocket7_world_space = m_transform(pocket7_table_space, ChessToWorld);
+			pocket_world_space.push_back(pocket7_world_space);
 
-			Mat pocket6_camera_space = R * pocket6_table_space + tvec;
 
-			pocket6_camera_space.at<double>(0, 0) = square_size * pocket6_camera_space.at<double>(0, 0);
-			pocket6_camera_space.at<double>(1, 0) = -square_size * pocket6_camera_space.at<double>(1, 0);
-			pocket6_camera_space.at<double>(2, 0) = -square_size * pocket6_camera_space.at<double>(2, 0);
-
-			Mat pocket6_world_space = R_world * pocket6_camera_space + tvec_world;
-
-			float3 pocket6_world_spacef = { float(pocket6_world_space.at<double>(0, 0)), float(pocket6_world_space.at<double>(1, 0)) , float(pocket6_world_space.at<double>(2, 0)) };
-
-			pocket_world_space.push_back(pocket6_world_spacef);
-
+			pool_table_plane = ConstructPlaneFromPoints(pocket1_world_space, pocket3_world_space, pocket6_world_space);
 			
-
-			Mat p1_table_space(3, 1, cv::DataType<double>::type);
-			p1_table_space.at<double>(0, 0) = -offset_origin / square_size;
-			p1_table_space.at<double>(1, 0) = -offset_origin / square_size;
-			p1_table_space.at<double>(2, 0) = (ball_real_diameter / 2.f - 0.015f) / square_size;
-
-			Mat p1_camera_space = R * p1_table_space + tvec;
-
-			p1_camera_space.at<double>(0, 0) = square_size * p1_camera_space.at<double>(0, 0);
-			p1_camera_space.at<double>(1, 0) = -square_size * p1_camera_space.at<double>(1, 0);
-			p1_camera_space.at<double>(2, 0) = -square_size *p1_camera_space.at<double>(2, 0);
-
-			Mat p1_world_space = R_world * p1_camera_space + tvec_world;
-
-			float3 p1_world_spacef = { float(p1_world_space.at<double>(0, 0)), float(p1_world_space.at<double>(1, 0)) , float(p1_world_space.at<double>(2, 0)) };
-
-			Mat p2_table_space(3, 1, cv::DataType<double>::type);
-			p2_table_space.at<double>(0, 0) = (-offset_origin + 2.f*midlength_table) / square_size;
-			p2_table_space.at<double>(1, 0) = -offset_origin / square_size;
-			p2_table_space.at<double>(2, 0) = (ball_real_diameter / 2.f - 0.015f) / square_size;
-
-			Mat p2_camera_space = R * p2_table_space + tvec;
-
-			p2_camera_space.at<double>(0, 0) = square_size * p2_camera_space.at<double>(0, 0);
-			p2_camera_space.at<double>(1, 0) = -square_size * p2_camera_space.at<double>(1, 0);
-			p2_camera_space.at<double>(2, 0) = -square_size * p2_camera_space.at<double>(2, 0);
-
-			Mat p2_world_space = R_world * p2_camera_space + tvec_world;
-
-			float3 p2_world_spacef = { float(p2_world_space.at<double>(0, 0)), float(p2_world_space.at<double>(1, 0)) , float(p2_world_space.at<double>(2, 0)) };
-
-			Mat p3_table_space(3, 1, cv::DataType<double>::type);
-			p3_table_space.at<double>(0, 0) = -offset_origin / square_size;
-			p3_table_space.at<double>(1, 0) = (-offset_origin + width_table) / square_size;
-			p3_table_space.at<double>(2, 0) = (ball_real_diameter / 2.f - 0.015f) / square_size;
-
-			Mat p3_camera_space = R * pocket3_table_space + tvec;
-
-			p3_camera_space.at<double>(0, 0) = square_size * p3_camera_space.at<double>(0, 0);
-			p3_camera_space.at<double>(1, 0) = -square_size * p3_camera_space.at<double>(1, 0);
-			p3_camera_space.at<double>(2, 0) = -square_size * p3_camera_space.at<double>(2, 0);
-
-			Mat p3_world_space = R_world * p3_camera_space + tvec_world;
-
-			float3 p3_world_spacef = { float(p3_world_space.at<double>(0, 0)), float(p3_world_space.at<double>(1, 0)) , float(p3_world_space.at<double>(2, 0)) };
-
-			pool_table_plane = ConstructPlaneFromPoints(p1_world_spacef, p2_world_spacef, p3_world_spacef);
-
-		
-			p_world_space.push_back(p1_world_spacef);
-			p_world_space.push_back(p2_world_spacef);
-			p_world_space.push_back(p3_world_spacef);
-
-
 		}
 		else 
 			dbg::trace(L"no chessboard detected");
@@ -629,37 +567,22 @@ namespace HoloPool
 
 
 	
-	void AppMain::DetectTargetBall(Mat frame, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Perception::Spatial::SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Foundation::Numerics::float4x4 CameraToWorld)
+	void AppMain::DetectTargetBall(Mat frame, cv::Rect2i Window)
 	{
-		Mat cameraMatrix(3, 3, CV_64FC1);
-		Mat distCoeffs(5, 1, CV_64FC1);
+		
 
-		if (nullptr != cameraIntrinsics)
-		{
-			cv::setIdentity(cameraMatrix);
-
-			cameraMatrix.at<double>(0, 0) = cameraIntrinsics->FocalLength.x;
-			cameraMatrix.at<double>(1, 1) = cameraIntrinsics->FocalLength.y;
-			cameraMatrix.at<double>(0, 2) = cameraIntrinsics->PrincipalPoint.x;
-			cameraMatrix.at<double>(1, 2) = cameraIntrinsics->PrincipalPoint.y;
-
-
-			distCoeffs.at<double>(0, 0) = cameraIntrinsics->RadialDistortion.x;
-			distCoeffs.at<double>(1, 0) = cameraIntrinsics->RadialDistortion.y;
-			distCoeffs.at<double>(2, 0) = cameraIntrinsics->TangentialDistortion.x;
-			distCoeffs.at<double>(3, 0) = cameraIntrinsics->TangentialDistortion.y;
-			distCoeffs.at<double>(4, 0) = cameraIntrinsics->RadialDistortion.z;
-		}
-
+		target_ball_found = false;
 
 		Mat HSVframe;
 		vector<Mat> channels(3);
-		Mat frame2;
+		Mat frame2 = frame;
 		//cv::blur(frame, frame2, cv::Size(10, 10));
 		cv::cvtColor(frame2, HSVframe, COLOR_BGR2HSV);
 		cv::split(HSVframe, channels);
-		Mat hframe;
+		Mat hframe, sframe, vframe;
 		hframe = channels[0];
+		sframe = channels[1];
+		vframe = channels[2];
 
 		int histSize = 180;
 
@@ -667,121 +590,145 @@ namespace HoloPool
 		float range[] = { 0, 180 };
 		const float* histRange = { range };
 		bool uniform = true; bool accumulate = false;
-		
+
 		Mat hist;
 
 		// Compute the histogram
 		calcHist(&hframe, 1, 0, Mat(), hist, 1, &histSize, &histRange, uniform, accumulate);
 
 		double maxVal = 0;
-		cv::Point maxPoint;
-		minMaxLoc(hist, 0, &maxVal, 0, &maxPoint);
-		int hmax = maxPoint.y;
+		cv::Point hmaxPoint;
+		minMaxLoc(hist, 0, &maxVal, 0, &hmaxPoint);
+		int hmax = hmaxPoint.y;
 
-		//threshold on the Hue channel
-		double minthres = hmax - 7;
-		double maxthres = hmax + 7;
-		Scalar mintable = { minthres,0,0 };
-		Scalar maxtable = { maxthres,255,255 };
+		int histSize2 = 255;
+
+		// Set the range
+		float range2[] = { 0, 255 };
+		const float* histRange2 = { range2 };
+
+		Mat vhist;
+
+		// Compute the histogram
+		calcHist(&vframe, 1, 0, Mat(), vhist, 1, &histSize2, &histRange2, uniform, accumulate);
+
+		cv::Point vmaxPoint;
+		minMaxLoc(vhist, 0, &maxVal, 0, &vmaxPoint);
+		int vmax = vmaxPoint.y;
+
+		double thresvmax;
+		double thresvmin;
+
+		if (vmax < 205)
+			thresvmax = vmax + 40;
+		else
+			thresvmax = 255;
+
+		if (vmax > 50)
+			thresvmin = vmax - 40;
+		else
+			thresvmin = 0;
+
+		Scalar mintable = { double(hmax - 10), 2 , thresvmin };
+		Scalar maxtable = { double(hmax + 10) , 240 , thresvmax };
 		Mat threshold;
 		cv::inRange(HSVframe, mintable, maxtable, threshold);
 
-		cv::threshold(threshold, threshold, 0, 255, THRESH_BINARY);
-
 		// Create a structuring element
-		//int erosion_size = 4;
-		//Mat element = getStructuringElement(cv::MORPH_CROSS,
-		//	cv::Size(2 * erosion_size + 1, 2 * erosion_size + 1),
-		//	cv::Point(erosion_size, erosion_size));
+
+		int erosion_size = 5;
+		Mat element = getStructuringElement(cv::MORPH_CROSS,
+			cv::Size(2 * erosion_size + 1, 2 * erosion_size + 1),
+			cv::Point(erosion_size, erosion_size));
+
+		int erosion_size2 = 3;
+		Mat element2 = getStructuringElement(cv::MORPH_CROSS,
+			cv::Size(2 * erosion_size2 + 1, 2 * erosion_size2 + 1),
+			cv::Point(erosion_size2, erosion_size2));
 
 		// Apply erosion or dilation on the image
-		//cv::erode(threshold, threshold, element);
-		//cv::dilate(threshold, threshold, element);
+		cv::erode(threshold, threshold, element);
+		cv::dilate(threshold, threshold, element);
 
-		double fx = cameraIntrinsics->FocalLength.x;
-		int MaxRadius = int(0.1*fx);
-		int MinRadius = int(0.01*fx);
+		cv::erode(threshold, threshold, element2);
+		cv::dilate(threshold, threshold, element2);
+
+		cv::erode(threshold, threshold, element2);
+		cv::dilate(threshold, threshold, element2);
+
+		Mat threshold_window = threshold(Window);
+
+		int MaxRadius = int(ball_window_width / 2.);
+		int MinRadius = 10;
 		Scalar color_ball = Scalar(0, 0, 0);
 
 		//Detect contours avec FindContours
 		Mat contours;
-		Canny(threshold, contours, 50, 100);
+		Canny(threshold_window, contours, 50, 100);
 
-		/*
+		cv::Point pts1 = Point2i{ int(frame.cols / 2. - ball_window_width / 2.), int(frame.rows / 2. - ball_window_width / 2.) };
+		
+
 		std::vector<cv::Vec3f> circles;
 		HoughCircles(contours, circles, CV_HOUGH_GRADIENT,
 			2, //accumulator resolution 
-			100, //min distance between two circles
+			5, //min distance between two circles
 			100, //Canny high threshold
 			80, // min number of votes
 			MinRadius, MaxRadius); // min and max radius
 
-		int bestball = 0;
-		float bestDotProduct = -1.0f;
-		
-		
-		for (size_t i = 0; i < circles.size(); i++)
+
+		cv::Point center_frame = { int(frame.cols / 2.f), int(frame.rows / 2.f) };
+
+		if (circles.size() > 0)
 		{
-			cv::Vec3f ball = circles[i];
-			cv::Point center = { int((ball)[0]), int((ball)[1]) };
+			int bestballindex = 0;
+			double bestlenght = 0.;
 
-			float unproject_xi = float((center.x - cameraIntrinsics->PrincipalPoint.x) / cameraIntrinsics->FocalLength.x);
-			float unproject_yi = float((center.y - cameraIntrinsics->PrincipalPoint.y) / cameraIntrinsics->FocalLength.y);
-			float3 vectorTowardscenter_unormalizedi = float3{ unproject_xi ,  -unproject_yi , -1.0f };
-			float3 vectorTowardscenteri = normalize(vectorTowardscenter_unormalizedi);
-
-			float const dotFaceWithGaze = dot(vectorTowardscenteri, -float3::unit_z());
-
-			if (dotFaceWithGaze > bestDotProduct)
+			for (size_t i = 0; i < circles.size(); i++)
 			{
-				bestDotProduct = dotFaceWithGaze;
-				bestball = i;
+				cv::Vec3f ball = circles[i];
+
+				
+				cv::Point center = { int(ball[0] + pts1.x), int(ball[1] + pts1.y) };
+
+				double lenght = cv::norm(center - center_frame);
+
+				if (lenght < bestlenght)
+				{
+					bestlenght = lenght;
+					bestballindex = i;
+				}
 			}
+
+			targetball = circles[bestballindex];
+
+			
+			target_ball_found = true;
+
 		}
 
-		cv::Point center_bestball = { int((circles[bestball])[0]), int((circles[bestball])[1]) };
-		int radius_bestball = int((circles[bestball])[2]);
-
-		float BallWidthInMeters = 0.0525f;
-		float const estimatedBallDepth = cameraIntrinsics->FocalLength.x * BallWidthInMeters / (2.0f * radius_bestball);
-
-		float unproject_x = float((center_bestball.x - cameraIntrinsics->PrincipalPoint.x) / cameraIntrinsics->FocalLength.x);
-		float unproject_y = float((center_bestball.y - cameraIntrinsics->PrincipalPoint.y) / cameraIntrinsics->FocalLength.y);
-		float3 vectorTowardscenter_unormalized = float3{ unproject_x ,  -unproject_y , -1.0f };
-		float3 vectorTowardscenter = normalize(vectorTowardscenter_unormalized);
-
-		TargetBallPositionInCameraSpace = vectorTowardscenter * estimatedBallDepth;
-		float3 TargetBallPositionInWorldSpace1 = m_transform(TargetBallPositionInCameraSpace, CameraToWorld);
-
-		cv::circle(frame, center_bestball, radius_bestball, color_ball, 2, 8, 0);
-
-		CameraPositionWorldSpace = m_transform(float3{ 0.f,0.f,0.f }, CameraToWorld);
-
-		TargetBallPositionInWorldSpace = IntersectionLinePlane(CameraPositionWorldSpace, TargetBallPositionInWorldSpace1, pool_table_plane);
-		*/
-
 	}
-	
-	
+
 
 	
 	
-	void AppMain::DetectWhiteBall(Mat frame, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Perception::Spatial::SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Foundation::Numerics::float4x4 CameraToWorld)
+	void AppMain::DetectWhiteBall(Mat frame, cv::Rect2i Window)
 	{
-		Mat frame2 = frame;
-		frame2.convertTo(frame2, CV_64FC4);
-		frame2 = frame2 / 255.;
+		Mat frame_window = frame(Window);
+		frame_window.convertTo(frame_window, CV_64FC4);
+		frame_window = frame_window / 255.;
 		vector<Mat> channels(3);
-		cv::split(frame2, channels);
+		cv::split(frame_window, channels);
 		Mat B = channels[0];
 		Mat G = channels[1];
 		Mat R = channels[2];
 		Mat I = R + B + G;
 
-		double fx = cameraIntrinsics->FocalLength.x;
-		//double fy = cameraIntrinsics->FocalLength.y;
-		int MaxRadius = int(0.1*fx);
-		int MinRadius = int(0.01*fx);
+		white_ball_found = false;
+		
+		int MaxRadius = int(ball_window_width / 2.);
+		int MinRadius = 10;
 		Scalar color_ball = Scalar(0, 0, 0);
 
 		double ImaxVal = 0;
@@ -805,51 +752,36 @@ namespace HoloPool
 			80, // min number of votes
 			MinRadius, MaxRadius); // min and max radius
 
-		int bestball = 0;
-		float bestDotProduct = -1.0f;
 		
 
-		for (size_t i = 0; i < Icircles.size(); i++)
+		cv::Point center_frame = { int(frame.cols / 2.f), int(frame.rows / 2.f) };
+
+		cv::Point pts1 = Point2i{ int(frame.cols / 2. - ball_window_width / 2.), int(frame.rows / 2. - ball_window_width / 2.) };
+		
+		if (Icircles.size()>0)
 		{
-			cv::Vec3f ball = Icircles[i];
-			cv::Point center = { int((ball)[0]), int((ball)[1]) };
-
-			float unproject_xi = float((center.x - cameraIntrinsics->PrincipalPoint.x) / cameraIntrinsics->FocalLength.x);
-			float unproject_yi = float((center.y - cameraIntrinsics->PrincipalPoint.y) / cameraIntrinsics->FocalLength.y);
-			float3 vectorTowardscenter_unormalizedi = float3{ unproject_xi ,  -unproject_yi , -1.0f };
-			float3 vectorTowardscenteri = normalize(vectorTowardscenter_unormalizedi);
-
-			float const dotFaceWithGaze = dot(vectorTowardscenteri, -float3::unit_z());
-
-			if (dotFaceWithGaze > bestDotProduct)
+			int bestballindex = 0;
+			double bestlenght = 0.;
+		 
+			for (size_t i = 0; i < Icircles.size(); i++)
 			{
-				bestDotProduct = dotFaceWithGaze;
-				bestball = i;
+				cv::Vec3f ball = Icircles[i];
+				cv::Point center = { int(ball[0] + pts1.x), int(ball[1] + pts1.y) };
+
+				double lenght = cv::norm(center - center_frame);
+
+				if (lenght < bestlenght)
+				{
+					bestlenght = lenght;
+					bestballindex = i;
+				}
 			}
+
+			whiteball = Icircles[bestballindex];
+
+			white_ball_found = true;
+
 		}
-
-		cv::Point center_bestball = { int((Icircles[bestball])[0]), int((Icircles[bestball])[1]) };
-		int radius_bestball = int((Icircles[bestball])[2]);
-
-		float BallWidthInMeters = 0.0525f;
-		float const estimatedBallDepth = cameraIntrinsics->FocalLength.x * BallWidthInMeters / (2.0f * radius_bestball);
-
-		float unproject_x = float((center_bestball.x - cameraIntrinsics->PrincipalPoint.x) / cameraIntrinsics->FocalLength.x);
-		float unproject_y = float((center_bestball.y - cameraIntrinsics->PrincipalPoint.y) / cameraIntrinsics->FocalLength.y);
-		float3 vectorTowardscenter_unormalized = float3{ unproject_x ,  -unproject_y , -1.0f };
-		float3 vectorTowardscenter = normalize(vectorTowardscenter_unormalized);
-
-		WhiteBallPositionInCameraSpace = vectorTowardscenter * estimatedBallDepth;
-		float3 WhiteBallPositionInWorldSpace1 = m_transform(WhiteBallPositionInCameraSpace, CameraToWorld);
-
-		cv::circle(frame, center_bestball, radius_bestball, color_ball, 2, 8, 0);
-
-		CameraPositionWorldSpace = m_transform(float3{ 0.f,0.f,0.f }, CameraToWorld);
-
-		WhiteBallPositionInWorldSpace = IntersectionLinePlane(CameraPositionWorldSpace, WhiteBallPositionInWorldSpace1, pool_table_plane);
-
-		white_ball_found = true;
-
 	}
 	
 
@@ -873,6 +805,7 @@ namespace HoloPool
 		//		stepTimer);
 		//}
 
+		time(&now);
 
 		if (!_holoLensMediaFrameSourceGroupStarted)
 		{
@@ -991,6 +924,7 @@ namespace HoloPool
 		}
 
 		
+		
 		for (auto cameraPose : prediction->CameraPoses)
 		{
 			// The HolographicCameraRenderingParameters class provides access to set
@@ -1006,139 +940,243 @@ namespace HoloPool
 		cv::Mat frame;
 		rmcv::WrapHoloLensSensorFrameWithCvMat(latestFrame, frame);
 
+		
+		
+		cv::Point textposition = Point2i{ 200 , 255};
+		
+
+
+		
+		cv::Point pts1 = Point2i{ int(frame.cols / 2. - ball_window_width / 2.), int(frame.rows / 2. - ball_window_width / 2.) };
+		cv::Point pts2 = Point2i{ int(frame.cols / 2. + ball_window_width / 2.), int(frame.rows / 2. + ball_window_width / 2.) };
+		cv::Rect2i Window = cv::Rect2i(pts1, pts2);
+		
+
+		int number_target_avarage = 10;
+		
 		const auto tryTransformCtW = CameraCoordinateSystem->TryGetTransformTo(m_WorldCoordinateSystem);
-		Windows::Foundation::Numerics::float4x4 CameraToWorld = tryTransformCtW->Value;
-
-		DetectTargetBall(frame, cameraIntrinsics, CameraCoordinateSystem, CameraToWorld);
-
-
-		/*
-
-		cv::Point textposition = Point2i{ 200 , 360};
-
-
-		//Set the transform from the Camera Space to the World Space
-		if (!ready_to_detect_chessboard)
-		{
-			cv::putText(frame, "Get placed at position and look toward the chessboard. When Ready, airtap", textposition, FONT_HERSHEY_SIMPLEX, 0.7 , Scalar{ 255,255,255 }, 2);
-		}
+		
+		if (tryTransformCtW == nullptr)
+			dbg::trace(L"CameraToWorld null");
 		else
 		{ 
-			const auto tryTransformCtW = CameraCoordinateSystem->TryGetTransformTo(m_WorldCoordinateSystem);
+			Windows::Foundation::Numerics::float4x4 CameraToWorld = tryTransformCtW->Value;
+			CameraPositionWorldSpace = m_transform(float3{ 0.f,0.f,0.f }, CameraToWorld);
 
-			if (tryTransformCtW == nullptr)
-			{
-				dbg::trace(L"CameraToWorld null");
+			if (!ready_to_detect_chessboard)
+			{ 
+				order_airtap = 0;
+				cv::putText(frame, "Get placed at red cross and look toward the chessboard. When Ready, airtap", textposition, FONT_HERSHEY_SIMPLEX, 0.7 , Scalar{ 255,255,255 }, 2);
 			}
-			else 
+
+			else
 			{
-				Windows::Foundation::Numerics::float4x4 CameraToWorld = tryTransformCtW->Value;
 				if (!_isPoolDetected)
-				{ 
 					DetectPoolTableChessBoard(frame, CameraCoordinateSystem, cameraIntrinsics, CameraToWorld);
-				}
 				else
 				{
-					if (!target_ball_found)
-					{ 
-						cv::Point textposition1 = Point2i{ 200 , 360 };
-						cv::putText(frame, "Look towards your target ball", textposition1, FONT_HERSHEY_SIMPLEX, 0.7, Scalar{ 255,255,255 }, 2);
-						cv::Point textposition2 = Point2i{ 200 , 390 };
-						cv::putText(frame, "When the right target ball is selected, airtap", textposition2, FONT_HERSHEY_SIMPLEX, 0.7, Scalar{ 255,255,255 }, 2);
-						DetectTargetBall(frame, cameraIntrinsics, CameraCoordinateSystem, CameraToWorld);
+					order_airtap = 1;
+
+					float3 pocket_world_space1 = pocket_world_space[0];
+					float3 pocket_world_space2 = pocket_world_space[1];
+					float3 pocket_world_space3 = pocket_world_space[2];
+					float3 pocket_world_space4 = pocket_world_space[3];
+					float3 pocket_world_space5 = pocket_world_space[4];
+					float3 pocket_world_space6 = pocket_world_space[5];
+					m_markerpocket1->Update(pocket_world_space1, stepTimer);
+					m_markerpocket2->Update(pocket_world_space2, stepTimer);
+					m_markerpocket3->Update(pocket_world_space3, stepTimer);
+					m_markerpocket4->Update(pocket_world_space4, stepTimer);
+					m_markerpocket5->Update(pocket_world_space5, stepTimer);
+					m_markerpocket6->Update(pocket_world_space6, stepTimer);
+
+					Point2f pocket1_rendered_frame = OnRenderedFrame(false, frame, pocket_world_space1, cameraIntrinsics);
+					Point2f pocket2_rendered_frame = OnRenderedFrame(false, frame, pocket_world_space2, cameraIntrinsics);
+					Point2f pocket3_rendered_frame = OnRenderedFrame(false, frame, pocket_world_space3, cameraIntrinsics);
+					Point2f pocket4_rendered_frame = OnRenderedFrame(false, frame, pocket_world_space4, cameraIntrinsics);
+					Point2f pocket5_rendered_frame = OnRenderedFrame(false, frame, pocket_world_space5, cameraIntrinsics);
+					Point2f pocket6_rendered_frame = OnRenderedFrame(false, frame, pocket_world_space6, cameraIntrinsics);
+
+
+					if (!ready_to_detect_target_ball)
+					{
+						target_identified = false;
+						cv::putText(frame, "Put the target ball in the black square. When Ready, airtap", textposition, FONT_HERSHEY_SIMPLEX, 0.7, Scalar{ 255,0,0 }, 2);
+						cv::rectangle(frame, Window, Scalar{ 0,0,0 }, 2);
+						target_count = 0;
+						sum_x_target = 0;
+						sum_y_target = 0;
+						sum_radius_target = 0;
 					}
-				
 					else
 					{
-					
-						m_markerTargetBall->Update(TargetBallPositionInWorldSpace, stepTimer);
+						if (!target_identified)
+						{
+							cv::putText(frame, "Wait until the ball is detected", textposition, FONT_HERSHEY_SIMPLEX, 0.7, Scalar{ 255,0,0 }, 2);
+							cv::rectangle(frame, Window, Scalar{ 0,0,0 }, 2);
 
-						CameraPositionWorldSpace = m_transform(float3{ 0.f,0.f,0.f }, CameraToWorld);
-					
-						
-						float3 TargetBallPositionRenderedFrame3D = IntersectionLinePlane(CameraPositionWorldSpace, TargetBallPositionInWorldSpace, plane_frame_world_space);
+							if (target_count < number_target_avarage)
+							{
+								DetectTargetBall(frame, Window);
 
-						float xt = dot(TargetBallPositionRenderedFrame3D - center_plane_world_space, X_frame_world_space);
-						float yt = dot(TargetBallPositionRenderedFrame3D - center_plane_world_space, Y_frame_world_space);
-						float xt_im = frame.cols / 2.0f + xt * cameraIntrinsics->FocalLength.x;
-						float yt_im = frame.rows / 2.0f + yt * cameraIntrinsics->FocalLength.y;
+								if (target_ball_found)
+								{
+									sum_x_target = sum_x_target + targetball[0];
+									sum_y_target = sum_y_target + targetball[1];
+									sum_radius_target = sum_radius_target + targetball[2];
 
-						float ltb = length(TargetBallPositionRenderedFrame3D - CameraPositionWorldSpace);
-						float Ltb = length(TargetBallPositionInWorldSpace - CameraPositionWorldSpace);
-						float rtb = (ltb*ball_real_diameter) / (2.f*Ltb);
-						Point2f TargetBallPositionRenderedFrame2D = Point2f{ xt_im,yt_im };
-						cv::circle(frame, TargetBallPositionRenderedFrame2D, int(rtb*cameraIntrinsics->FocalLength.x), Scalar(0, 255, 0), 2);
-						
-					
-					
-						if (!white_ball_found)
-						{ 
-							cv::putText(frame, "Look towards the white ball", textposition, FONT_HERSHEY_SIMPLEX, 0.7, Scalar{ 255,255,255 }, 2);
-							DetectWhiteBall(frame, cameraIntrinsics, CameraCoordinateSystem, CameraToWorld);
-							count = 0;
+									cv::Point center = { int(targetball[0] + pts1.x), int(targetball[1] + pts1.y) };
+
+									//cv::circle(frame, center, int(targetball[2]), Scalar{ 255,255,0 }, 2, 8, 0);
+
+									target_count = target_count + 1;
+
+								}
+
+							}
+							else
+							{
+
+
+								int x_target = int(sum_x_target / float(target_count));
+								int y_target = int(sum_y_target / float(target_count));
+								int radius_targetball = int(sum_radius_target / float(target_count));
+
+								cv::Point center_targetball = { x_target + pts1.x, y_target + pts1.y };
+
+								cv::circle(frame, center_targetball, radius_targetball, Scalar{ 255,255,0 }, 2, 8, 0);
+
+								float BallWidthInMeters = 0.0525f;
+								float const estimatedTargetBallDepth = cameraIntrinsics->FocalLength.x * BallWidthInMeters / (2.0f * radius_targetball);
+								float unproject_xtarget = float((center_targetball.x - cameraIntrinsics->PrincipalPoint.x) / cameraIntrinsics->FocalLength.x);
+								float unproject_ytarget = float((center_targetball.y - cameraIntrinsics->PrincipalPoint.y) / cameraIntrinsics->FocalLength.y);
+								float3 vectorTowardstargetcenter_unormalized = float3{ unproject_xtarget ,  -unproject_ytarget , -1.0f };
+								float3 vectorTowardstargetcenter = normalize(vectorTowardstargetcenter_unormalized);
+
+								TargetBallPositionInCameraSpace = vectorTowardstargetcenter * estimatedTargetBallDepth;
+								float3 TargetBallPositionInWorldSpace1 = m_transform(TargetBallPositionInCameraSpace, CameraToWorld);
+
+								TargetBallPositionInWorldSpace = IntersectionLinePlane(CameraPositionWorldSpace, TargetBallPositionInWorldSpace1, pool_table_plane);
+
+								m_markerTargetBall->Update(TargetBallPositionInWorldSpace, stepTimer);
+
+								target_identified = true;
+
+								target_count = 0;
+							}
+
 						}
+
+
 						else
 						{
-							frame = 0.f * frame;
-							m_markerWhiteBall->Update(WhiteBallPositionInWorldSpace, stepTimer);
+							order_airtap = 2;
 
-							
-							float3 WhiteBallPositionRenderedFrame3D = IntersectionLinePlane(CameraPositionWorldSpace, WhiteBallPositionInWorldSpace, plane_frame_world_space);
+							if (!ready_to_detect_white_ball)
+							{
+								white_identified = false;
+								cv::putText(frame, "Put the white ball in the square. When Ready, airtap", textposition, FONT_HERSHEY_SIMPLEX, 0.7, Scalar{ 255,0,0 }, 2);
+								cv::rectangle(frame, Window, Scalar{ 255, 0 , 0 }, 2);
+								white_count = 0;
+								sum_x_white = 0;
+								sum_y_white = 0;
+								sum_radius_white = 0;
+							}
+							else
+							{
+								if (!white_identified)
+								{
+									cv::putText(frame, "Wait until the ball is detected", textposition, FONT_HERSHEY_SIMPLEX, 0.7, Scalar{ 255,0,0 }, 2);
+									cv::rectangle(frame, Window, Scalar{ 255, 0 , 0 }, 2);
 
-							float xw = dot(WhiteBallPositionRenderedFrame3D - center_plane_world_space, X_frame_world_space);
-							float yw = dot(WhiteBallPositionRenderedFrame3D - center_plane_world_space, Y_frame_world_space);
-							float xw_im = frame.cols / 2.0f + xw * cameraIntrinsics->FocalLength.x;
-							float yw_im = frame.rows / 2.0f + yw * cameraIntrinsics->FocalLength.y;
+									if (white_count < number_target_avarage)
+									{
+										DetectWhiteBall(frame, Window);
 
-							//dbg::trace(L"point in plane");
-							//dbg::trace(L"%f", plane_frame_attached_space.x*WhiteBallPositionRenderedFrame3D.x + plane_frame_attached_space.y*WhiteBallPositionRenderedFrame3D.y + plane_frame_attached_space.z*WhiteBallPositionRenderedFrame3D.z + plane_frame_attached_space.w);
+										if (white_ball_found)
+										{
+											sum_x_white = sum_x_white + whiteball[0];
+											sum_y_white = sum_y_white + whiteball[1];
+											sum_radius_white = sum_radius_white + whiteball[2];
 
-							//dbg::trace(L"point in line");
-							//dbg::trace(L"%f", dot(normalize(CameraPositionWorldSpace - WhiteBallPositionRenderedFrame3D), normalize(CameraPositionWorldSpace - WhiteBallPositionInWorldSpace)));
+											cv::Point centerwhite = { int(whiteball[0] + pts1.x), int(whiteball[1] + pts1.y) };
 
-							float lw = length(WhiteBallPositionRenderedFrame3D - CameraPositionWorldSpace);
-							float Lw = length(WhiteBallPositionInWorldSpace - CameraPositionWorldSpace);
-							float rw = (lw*ball_real_diameter) / (2.f*Lw);
-							Point2f WhiteBallPositionRenderedFrame2D = Point2f{ xw_im,yw_im };
-							cv::circle(frame, WhiteBallPositionRenderedFrame2D, int(rw*cameraIntrinsics->FocalLength.x), Scalar(255, 0, 0), 2);
+											//cv::circle(frame, centerwhite, int(whiteball[2]), Scalar{ 255,255,0 }, 2, 8, 0);
 
-							cv::line(frame, WhiteBallPositionRenderedFrame2D, TargetBallPositionRenderedFrame2D, Scalar(0, 0, 255), 1);
-							
+											white_count = white_count + 1;
 
+										}
+
+									}
+									else
+									{
+
+
+										int x_white = int(sum_x_white / float(white_count));
+										int y_white = int(sum_y_white / float(white_count));
+										int radius_whiteball = int(sum_radius_white / float(white_count));
+
+										cv::Point center_whiteball = { x_white + pts1.x, y_white + pts1.y };
+
+										cv::circle(frame, center_whiteball, radius_whiteball, Scalar{ 255,255,0 }, 2, 8, 0);
+
+										float BallWidthInMeters = 0.0525f;
+										float const estimatedWhiteBallDepth = cameraIntrinsics->FocalLength.x * BallWidthInMeters / (2.0f * radius_whiteball);
+										float unproject_xwhite = float((center_whiteball.x - cameraIntrinsics->PrincipalPoint.x) / cameraIntrinsics->FocalLength.x);
+										float unproject_ywhite = float((center_whiteball.y - cameraIntrinsics->PrincipalPoint.y) / cameraIntrinsics->FocalLength.y);
+										float3 vectorTowardswhitecenter_unormalized = float3{ unproject_xwhite ,  -unproject_ywhite , -1.0f };
+										float3 vectorTowardswhitecenter = normalize(vectorTowardswhitecenter_unormalized);
+
+										WhiteBallPositionInCameraSpace = vectorTowardswhitecenter * estimatedWhiteBallDepth;
+										float3 WhiteBallPositionInWorldSpace1 = m_transform(WhiteBallPositionInCameraSpace, CameraToWorld);
+
+										WhiteBallPositionInWorldSpace = IntersectionLinePlane(CameraPositionWorldSpace, WhiteBallPositionInWorldSpace1, pool_table_plane);
+
+										m_markerWhiteBall->Update(WhiteBallPositionInWorldSpace, stepTimer);
+
+										white_identified = true;
+
+										white_count = 0;
+									}
+
+								}
+
+								else
+								{
+									order_airtap = 3;
+
+									frame = 0 * frame;
+
+									Point2f WhiteBallPositionRenderedFrame2D = OnRenderedFrame(true, frame, WhiteBallPositionInWorldSpace, cameraIntrinsics);
+									Point2f TargetBallPositionRenderedFrame2D = OnRenderedFrame(true, frame, TargetBallPositionInWorldSpace, cameraIntrinsics);
+
+									cv::line(frame, WhiteBallPositionRenderedFrame2D, TargetBallPositionRenderedFrame2D, Scalar(0, 0, 255), 2);
+
+									cv::line(frame, pocket1_rendered_frame, TargetBallPositionRenderedFrame2D, Scalar(100, 0, 0), 2);
+									cv::line(frame, pocket2_rendered_frame, TargetBallPositionRenderedFrame2D, Scalar(100, 0, 0), 2);
+									cv::line(frame, pocket3_rendered_frame, TargetBallPositionRenderedFrame2D, Scalar(100, 0, 0), 2);
+									cv::line(frame, pocket4_rendered_frame, TargetBallPositionRenderedFrame2D, Scalar(100, 0, 0), 2);
+									cv::line(frame, pocket5_rendered_frame, TargetBallPositionRenderedFrame2D, Scalar(100, 0, 0), 2);
+									cv::line(frame, pocket6_rendered_frame, TargetBallPositionRenderedFrame2D, Scalar(100, 0, 0), 2);
+								}
+
+							}
 
 						}
-					
+
 
 					}
-				
-				
-				}
-			
-			}
-		
 
+				}
+
+					
+			}
+			
 		}
 		
-		*/
-
-
 		
-
-
 		
-	
-
-
-		cv::line(frame, Point2f{ 0.f,0.f }, Point2f{ float(frame.cols), 0.f }, Scalar(255, 255, 255), 2);
-		cv::line(frame, Point2f{ float(frame.cols), 0.f }, Point2f{ float(frame.cols), float(frame.rows) }, Scalar(255, 255, 255), 2);
-		cv::line(frame, Point2f{ float(frame.cols), float(frame.rows) }, Point2f{ 0.f,float(frame.rows) }, Scalar(255, 255, 255), 2);
-		cv::line(frame, Point2f{ 0.f,float(frame.rows) }, Point2f{ 0.f,0.f } , Scalar(255, 255, 255), 2);
-
-
-
 		
-
-	
 		//Update 2D texture to suit with blurredPVCameraImage
 
 		OpenCVHelpers::CreateOrUpdateTexture2D(
@@ -1171,6 +1209,13 @@ namespace HoloPool
 			_currentSlateRenderer->Render(_currentVisualizationTexture);
 			m_markerTargetBall->Render();
 			m_markerWhiteBall->Render();
+			m_markerpocket1->Render();
+			m_markerpocket2->Render();
+			m_markerpocket3->Render();
+			m_markerpocket4->Render();
+			m_markerpocket5->Render();
+			m_markerpocket6->Render();
+			m_markerpocket7->Render();
 			
 		}
 	}

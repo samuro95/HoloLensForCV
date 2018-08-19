@@ -66,6 +66,13 @@ namespace HoloPool {
 		std::shared_ptr<Rendering::SlateRenderer> _currentSlateRenderer;
 		std::shared_ptr<Rendering::MarkerRenderer>  m_markerWhiteBall;
 		std::shared_ptr<Rendering::MarkerRenderer>  m_markerTargetBall;
+		std::shared_ptr<Rendering::MarkerRenderer> m_markerpocket1;
+		std::shared_ptr<Rendering::MarkerRenderer>  m_markerpocket2;
+		std::shared_ptr<Rendering::MarkerRenderer>  m_markerpocket3;
+		std::shared_ptr<Rendering::MarkerRenderer>  m_markerpocket4;
+		std::shared_ptr<Rendering::MarkerRenderer>  m_markerpocket5;
+		std::shared_ptr<Rendering::MarkerRenderer>  m_markerpocket6;
+		std::shared_ptr<Rendering::MarkerRenderer>  m_markerpocket7;
 
 		// Selected HoloLens media frame source group
 		HoloLensForCV::MediaFrameSourceGroupType _selectedHoloLensMediaFrameSourceGroupType;
@@ -111,11 +118,13 @@ namespace HoloPool {
 
 		void DetectPoolTable(cv::Mat frame);
 
-		void DetectTargetBall(cv::Mat frame, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Perception::Spatial::SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Foundation::Numerics::float4x4 CameraToWorld);
+		void DetectTargetBall(cv::Mat frame, cv::Rect2i Window);
 
-		void DetectWhiteBall(cv::Mat frame, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Perception::Spatial::SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Foundation::Numerics::float4x4 CameraToWorld);
+		void DetectWhiteBall(cv::Mat frame, cv::Rect2i Window);
 
 		void DetectWhiteBall2(cv::Mat frame, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics, Windows::Perception::Spatial::SpatialCoordinateSystem^ CameraCoordinateSystem, Windows::Foundation::Numerics::float4x4 CameraToWorld);
+
+		cv::Point2f OnRenderedFrame(bool Ball, cv::Mat frame, Windows::Foundation::Numerics::float3 PointWorldSpace, Windows::Media::Devices::Core::CameraIntrinsics^ cameraIntrinsics);
 
 		// Cached pointer to device resources.
 		std::shared_ptr<DX::DeviceResources>                            m_deviceResources;
@@ -166,9 +175,7 @@ namespace HoloPool {
 		Windows::Foundation::Numerics::float3 AppMain::IntersectionLinePointVectorPlane(_In_ Windows::Foundation::Numerics::float3 p1, Windows::Foundation::Numerics::float3 vector, Windows::Foundation::Numerics::float4 plane);
 	
 		Windows::Foundation::Numerics::float4 plane_frame_world_space;
-		Windows::Foundation::Numerics::float4 plane_frame_world_space2;
-		Windows::Foundation::Numerics::float4 plane_frame_world_space3;
-		Windows::Foundation::Numerics::float4 plane_frame_world_space4;
+		
 		Windows::Foundation::Numerics::float3 normal_plane_world_space;
 
 		Windows::Foundation::Numerics::float3 normal_plane_attached_space;
@@ -178,9 +185,8 @@ namespace HoloPool {
 		Windows::Foundation::Numerics::float4 plane_frame_attached_space;
 
 		Windows::Foundation::Numerics::float3 center_plane_world_space;
-		Windows::Foundation::Numerics::float3 center_plane_world_space2;
-		Windows::Foundation::Numerics::float3 center_plane_world_space3;
-		Windows::Foundation::Numerics::float3 center_plane_world_space4;
+		
+		Windows::Foundation::Numerics::float4x4 Invert_transform(Windows::Foundation::Numerics::float4x4 Transform);
 
 
 
@@ -218,16 +224,46 @@ namespace HoloPool {
 
 		Windows::Foundation::Numerics::float3 CameraPositionWorldSpace;
 		
-		int count =0 ;
+		
 
 		int AppMain::parametricIntersect(float r1, float t1, float r2, float t2, int *x, int *y);
 
 		bool ready_to_detect_chessboard = false;
+		bool ready_to_detect_target_ball = false;
+		bool ready_to_detect_white_ball = false;
 
 		time_t now;
 		
-	
+		int count = 0;
+		double accHMAX = 0;
+		
+		Windows::Foundation::Numerics::float3 tv;
+		Windows::Foundation::Numerics::float4 pv;
+		int cc = 0;
 
+		Windows::Foundation::Numerics::float4x4 ChessToWorld;
+		Windows::Foundation::Numerics::float4x4 WorldToChess;
+
+
+		int ball_window_width = 140;
+
+		int order_airtap;
+
+		cv::Vec3f targetball;
+		cv::Vec3f whiteball;
+
+		bool target_identified = false;
+		bool white_identified = false;
+
+		int target_count;
+		int white_count;
+
+		float sum_x_target;
+		float sum_y_target;
+		float sum_radius_target;
+		float sum_x_white;
+		float sum_y_white;
+		float sum_radius_white;
 		
 	};
 }
