@@ -79,7 +79,7 @@ int main() {
 
             // convert to green chromaticity
             
-            frame.convertTo(frame, CV_64FC1);
+            frame.convertTo(frame, CV_64FC4);
             frame = frame /255.f;
 
 
@@ -89,6 +89,10 @@ int main() {
             Mat G = channels2[1];
             Mat R = channels2[2];
             Mat I=R+B+G;
+
+
+
+
 
             Mat gc = Mat(Size(G.cols, G.rows), CV_64FC1);
             for (int i = 0 ; i < G.rows; ++i)
@@ -210,9 +214,11 @@ int main() {
 
             //frame = aa*frame;
 
+
+            gc.convertTo(gc,CV_8UC3);
             
 
-            imshow("frame", frame);
+            imshow("frame", gc);
         
             
         }
