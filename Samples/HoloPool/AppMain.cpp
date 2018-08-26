@@ -1051,8 +1051,8 @@ namespace HoloPool
 					{
 						render_frame = true;
 						target_identified = false;
-						cv::putText(frame, "Put the target ball in the black square. When Ready, airtap", textposition, FONT_HERSHEY_SIMPLEX, 0.7, Scalar{255,255,255}, 2);
-						cv::rectangle(frame, Window, Scalar{ 0,0,0 }, 2);
+						cv::putText(frame, "Put the target ball in the square. When Ready, airtap", textposition, FONT_HERSHEY_SIMPLEX, 0.7, Scalar{255,255,255}, 2);
+						cv::rectangle(frame, Window, Scalar{255,255,255}, 2);
 						target_count = 0;
 						sum_x_target = 0;
 						sum_y_target = 0;
@@ -1064,7 +1064,7 @@ namespace HoloPool
 						{
 							render_frame = true;
 							cv::putText(frame, "Wait until the ball is detected", textposition, FONT_HERSHEY_SIMPLEX, 0.7, Scalar{ 255,255,255 }, 2);
-							cv::rectangle(frame, Window, Scalar{ 0,0,0 }, 2);
+							cv::rectangle(frame, Window, Scalar{255,255,255 }, 2);
 
 							if (target_count < number_target_avarage)
 							{
@@ -1130,8 +1130,8 @@ namespace HoloPool
 							{
 								white_identified = false;
 								render_frame = true;
-								cv::putText(frame, "Put the white ball in the square. When Ready, airtap", textposition, FONT_HERSHEY_SIMPLEX, 0.7, Scalar{ 255,0,0 }, 2);
-								cv::rectangle(frame, Window, Scalar{ 255, 0 , 0 }, 2);
+								cv::putText(frame, "Put the white ball in the square. When Ready, airtap", textposition, FONT_HERSHEY_SIMPLEX, 0.7, Scalar{ 255, 255, 255}, 2);
+								cv::rectangle(frame, Window, Scalar{ 255, 255, 255}, 2);
 								white_count = 0;
 								sum_x_white = 0;
 								sum_y_white = 0;
@@ -1143,7 +1143,7 @@ namespace HoloPool
 								{
 									render_frame = true;
 									cv::putText(frame, "Wait until the ball is detected", textposition, FONT_HERSHEY_SIMPLEX, 0.7, Scalar{ 255,0,0 }, 2);
-									cv::rectangle(frame, Window, Scalar{ 255, 0 , 0 }, 2);
+									cv::rectangle(frame, Window, Scalar{ 255,255, 255 }, 2);
 
 									if (white_count < number_target_avarage)
 									{
