@@ -7,6 +7,8 @@
     <ClCompile Include="SlateMaterial.cpp" />
     <ClCompile Include="SlateRenderer.cpp" />
     <ClCompile Include="Texture2D.cpp" />
+    <ClCompile Include="LineRenderer.cpp" />
+    <ClCompile Include="BlueLineRenderer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -30,6 +32,12 @@
       <Filter>Include\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="Include\Rendering\Texture2D.h">
+      <Filter>Include\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Rendering\LineRenderer.h">
+      <Filter>Include\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Rendering\BlueLineRenderer.h">
       <Filter>Include\Rendering</Filter>
     </ClInclude>
   </ItemGroup>

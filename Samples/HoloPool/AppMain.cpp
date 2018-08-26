@@ -202,7 +202,8 @@ namespace HoloPool
 			float Ltb = length(PointWorldSpace - CameraPositionWorldSpace);
 			float rtb = (ltb*ball_real_diameter) / (2.f*Ltb);
 
-			cv::circle(frame, PointPositionRenderedFrame2D, int(rtb*cameraIntrinsics->FocalLength.x), Scalar(0, 255, 0), 2);
+			cv::circle(frame, PointPositionRenderedFrame2D, 2*int(rtb*cameraIntrinsics->FocalLength.x), Scalar(0, 255, 0), 2);
+			//cv::circle(frame, PointPositionRenderedFrame2D, 30, Scalar(0, 255, 0), 2);
 		}
 		return PointPositionRenderedFrame2D;
 
@@ -232,32 +233,6 @@ namespace HoloPool
 				std::bind(&AppMain::OnLocatabilityChanged, this, _1, _2)
 				);
 
-		// Respond to camera added events by creating any resources that are specific
-		// to that camera, such as the back buffer render target view.
-		// When we add an event handler for CameraAdded, the API layer will avoid putting
-		// the new camera in new HolographicFrames until we complete the deferral we created
-		// for that handler, or return from the handler without creating a deferral. This
-		// allows the app to take more than one frame to finish creating resources and
-		// loading assets for the new holographic camera.
-		// This function should be registered before the app creates any HolographicFrames.
-		m_cameraAddedToken =
-			m_holographicSpace->CameraAdded +=
-			ref new Windows::Foundation::TypedEventHandler<HolographicSpace^, HolographicSpaceCameraAddedEventArgs^>(
-				std::bind(&AppMain::OnCameraAdded, this, _1, _2)
-				);
-
-		// Respond to camera removed events by releasing resources that were created for that
-		// camera.
-		// When the app receives a CameraRemoved event, it releases all references to the back
-		// buffer right away. This includes render target views, Direct2D target bitmaps, and so on.
-		// The app must also ensure that the back buffer is not attached as a render target, as
-		// shown in DeviceResources::ReleaseResourcesForBackBuffer.
-		m_cameraRemovedToken =
-			m_holographicSpace->CameraRemoved +=
-			ref new Windows::Foundation::TypedEventHandler<HolographicSpace^, HolographicSpaceCameraRemovedEventArgs^>(
-				std::bind(&AppMain::OnCameraRemoved, this, _1, _2)
-				);
-
 		m_referenceFrame = m_locator->CreateStationaryFrameOfReferenceAtCurrentLocation();
 		m_reference_attached_Frame = m_locator->CreateAttachedFrameOfReferenceAtCurrentHeading();
 
@@ -268,8 +243,18 @@ namespace HoloPool
 		_isActiveRenderer = true;
 
 		_currentSlateRenderer = std::make_shared<Rendering::SlateRenderer>(_deviceResources);
-		m_markerTargetBall = std::make_shared<Rendering::MarkerRenderer>(_deviceResources);
-		m_markerWhiteBall = std::make_shared<Rendering::MarkerRenderer>(_deviceResources);
+		m_markerTargetBall = std::make_shared<Rendering::PolylineRenderer>(_deviceResources);
+		m_markerWhiteBall = std::make_shared<Rendering::PolylineRenderer>(_deviceResources);
+
+
+		cue_target = std::make_shared<Rendering::BlueLineRenderer>(_deviceResources);
+		target_pocket1 = std::make_shared<Rendering::LineRenderer>(_deviceResources);
+		target_pocket2 = std::make_shared<Rendering::LineRenderer>(_deviceResources);
+		target_pocket3 = std::make_shared<Rendering::LineRenderer>(_deviceResources);
+		target_pocket4 = std::make_shared<Rendering::LineRenderer>(_deviceResources);
+		target_pocket5 = std::make_shared<Rendering::LineRenderer>(_deviceResources);
+		target_pocket6 = std::make_shared<Rendering::LineRenderer>(_deviceResources);
+
 
 		m_markerpocket1 = std::make_shared<Rendering::MarkerRenderer>(_deviceResources);
 		m_markerpocket2 = std::make_shared<Rendering::MarkerRenderer>(_deviceResources);
@@ -277,11 +262,10 @@ namespace HoloPool
 		m_markerpocket4 = std::make_shared<Rendering::MarkerRenderer>(_deviceResources);
 		m_markerpocket5 = std::make_shared<Rendering::MarkerRenderer>(_deviceResources);
 		m_markerpocket6 = std::make_shared<Rendering::MarkerRenderer>(_deviceResources);
-		m_markerpocket7 = std::make_shared<Rendering::MarkerRenderer>(_deviceResources);
+		
 
 		_slateRendererList.push_back(_currentSlateRenderer);
-		_markerRendererList.push_back(m_markerTargetBall);
-		_markerRendererList.push_back(m_markerWhiteBall);
+		
 		_markerRendererList.push_back(m_markerpocket1);
 		_markerRendererList.push_back(m_markerpocket2);
 		_markerRendererList.push_back(m_markerpocket3);
@@ -290,7 +274,19 @@ namespace HoloPool
 		_markerRendererList.push_back(m_markerpocket6);
 		_markerRendererList.push_back(m_markerpocket7);
 		
+		
+		_polylineRendererList.push_back(m_markerTargetBall);
+		_polylineRendererList.push_back(m_markerWhiteBall);
 
+		_BluelineRendererList.push_back(cue_target);
+
+		_lineRendererList.push_back(target_pocket1);
+		_lineRendererList.push_back(target_pocket2);
+		_lineRendererList.push_back(target_pocket3);
+		_lineRendererList.push_back(target_pocket4);
+		_lineRendererList.push_back(target_pocket5);
+		_lineRendererList.push_back(target_pocket6);
+		
 	}
 
 	
@@ -454,16 +450,14 @@ namespace HoloPool
 		cv::Size patternsize(numSquares, numSquares); 
 		vector<Point2f> corners;
 		bool patternfound = findChessboardCorners(gray, patternsize, corners); //Returns True if the chess board is detected  
-
 		
-		if (patternfound)
+		
+		if (patternfound && chess_iteration < num_chess_iteration)
 		{
-			_isPoolDetected = true;
-			dbg::trace(L"chessboard detected");
 
-			cornerSubPix(gray, corners, cv::Size(11, 11), cv::Size(-1, -1),TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1)); //Refines corner location
+			cornerSubPix(gray, corners, cv::Size(11, 11), cv::Size(-1, -1), TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1)); //Refines corner location
 			drawChessboardCorners(frame, patternsize, Mat(corners), patternfound);
-		
+
 			vector<Point3f> object_point; //Corner positions in the "ChessBoard coordinate system". 
 			for (int j = 0; j < 36; j++)
 				object_point.push_back(Point3f(float(j / numSquares), float(j%numSquares), 0.0f));
@@ -471,11 +465,55 @@ namespace HoloPool
 			vector<Point2f> image_point = corners; //Corner positions in the frame.
 
 			Mat rvec; //Rotation from Camera Space to Pool Table Space.
-			
+
 			Mat tvec; //Translation from Camera Space to Pool Table Space.
-			
+
 			solvePnP(object_point, image_point, cameraMatrix, distCoeffs, rvec, tvec); //Find the ChessBoard pose.  
 
+
+			dbg::trace(L"chessboard found");
+
+
+			float length = 2.0f;
+			vector<Point3f> axisPoints;
+			axisPoints.push_back(Point3f(0, 0, 0));
+			axisPoints.push_back(Point3f(length, 0, 0));
+			axisPoints.push_back(Point3f(0, length, 0));
+			axisPoints.push_back(Point3f(0, 0, length));
+			vector< Point2f > imagePoints;
+			projectPoints(axisPoints, rvec, tvec, cameraMatrix, distCoeffs, imagePoints);
+
+
+			cv::line(frame, imagePoints[0], imagePoints[1], Scalar(0, 0, 255), 3);
+			cv::line(frame, imagePoints[0], imagePoints[2], Scalar(0, 255, 0), 3);
+			cv::line(frame, imagePoints[0], imagePoints[3], Scalar(255, 0, 0), 3);
+
+			if (chess_iteration == 0)
+			{
+				sum_rvec = cv::Mat(rvec.size(), rvec.type());
+				sum_rvec = 0;
+				sum_tvec = cv::Mat(tvec.size(), tvec.type());
+				sum_tvec = 0;
+			}
+
+			sum_rvec = sum_rvec + rvec;
+			sum_tvec = sum_tvec + tvec;
+
+			chess_iteration = chess_iteration + 1;
+
+			dbg::trace(L"%f %f %f", sum_tvec.at<double>(0, 0), sum_tvec.at<double>(1, 0), sum_tvec.at<double>(2, 0));
+
+		}
+		
+
+		if(chess_iteration == num_chess_iteration)
+		{
+			_isPoolDetected = true;
+			
+			Mat rvec = sum_rvec / float(num_chess_iteration);
+			Mat tvec = sum_tvec / float(num_chess_iteration);
+
+			dbg::trace(L"%f %f %f", tvec.at<double>(0, 0), tvec.at<double>(1, 0), tvec.at<double>(2, 0));
 
 			//draw axis on the frame. 
 			float length = 2.0f;
@@ -508,59 +546,63 @@ namespace HoloPool
 			Mat offset(3, 1, cv::DataType<double>::type);
 			offset.at<double>(0, 0) = -offset_lenght;
 			offset.at<double>(1, 0) = -offset_lenght;
-			offset.at<double>(2, 0) = ball_real_diameter/2. ;
+			offset.at<double>(2, 0) = ball_real_diameter/2.;
+			
 
 			Mat tvec_transform = R * offset + tvec * square_size;
 
 			float4x4 ChessToCamera = float4x4(float(tR.at<double>(0, 0)), -float(tR.at<double>(0, 1)), -float(tR.at<double>(0, 2)), 0.f,
-				float(tR.at<double>(1, 0)), -float(tR.at<double>(1, 1)), -float(tR.at<double>(1, 2)), 0.f,
-				float(tR.at<double>(2, 0)), -float(tR.at<double>(2, 1)), -float(tR.at<double>(2, 2)), 0.f,
-				float(tvec_transform.at<double>(0, 0)), -float(tvec_transform.at<double>(1, 0)), -float(tvec_transform.at<double>(2, 0)), 1.f);
+											float(tR.at<double>(1, 0)), -float(tR.at<double>(1, 1)), -float(tR.at<double>(1, 2)), 0.f,
+											float(tR.at<double>(2, 0)), -float(tR.at<double>(2, 1)), -float(tR.at<double>(2, 2)), 0.f,
+											float(tvec_transform.at<double>(0, 0)), -float(tvec_transform.at<double>(1, 0)), -float(tvec_transform.at<double>(2, 0)), 1.f);
 
 			ChessToWorld = operator* (ChessToCamera, CameraToWorld);
+
 			WorldToChess = Invert_transform(ChessToWorld);
 
 			//pocket1
 			float3 pocket1_table_space = float3{ 0.f , 0.f , 0.f};
 			float3 pocket1_world_space = m_transform(pocket1_table_space, ChessToWorld);
 			pocket_world_space.push_back(pocket1_world_space);
+			
 
 			//pocket2
 			float3 pocket2_table_space = float3{0.f , midlength_table, 0.f };
 			float3 pocket2_world_space = m_transform(pocket2_table_space, ChessToWorld);
+			pocket2_world_space.y = pocket1_world_space.y;
 			pocket_world_space.push_back(pocket2_world_space);
+			
 
 			//pocket3
 			float3 pocket3_table_space = float3{ 0.f , 2 * midlength_table, 0.f };
 			float3 pocket3_world_space = m_transform(pocket3_table_space, ChessToWorld);
+			pocket3_world_space.y = pocket1_world_space.y;
 			pocket_world_space.push_back(pocket3_world_space);
+			
 
 			//pocket4
 			float3 pocket4_table_space = float3{width_table , 2 * midlength_table, 0.f };
 			float3 pocket4_world_space = m_transform(pocket4_table_space, ChessToWorld);
+			pocket4_world_space.y = pocket1_world_space.y;
 			pocket_world_space.push_back(pocket4_world_space);
+			
 
 			//pocket5
 			float3 pocket5_table_space = float3{width_table, midlength_table, 0.f };
 			float3 pocket5_world_space = m_transform(pocket5_table_space, ChessToWorld);
+			pocket5_world_space.y = pocket1_world_space.y;
 			pocket_world_space.push_back(pocket5_world_space);
 			
-			//pocket6
 			float3 pocket6_table_space = float3{ width_table, 0.f ,  0.f };
 			float3 pocket6_world_space = m_transform(pocket6_table_space, ChessToWorld);
+			pocket6_world_space.y = pocket1_world_space.y;
 			pocket_world_space.push_back(pocket6_world_space);
+			
 
-			//pockettest
-			float3 pocket7_table_space = float3{ width_table, width_table ,  0.f };
-			float3 pocket7_world_space = m_transform(pocket7_table_space, ChessToWorld);
-			pocket_world_space.push_back(pocket7_world_space);
-
-
-			pool_table_plane = ConstructPlaneFromPoints(pocket1_world_space, pocket3_world_space, pocket6_world_space);
+			pool_table_plane = ConstructPlaneFromPoints(pocket1_world_space, pocket2_world_space, pocket6_world_space);
 			
 		}
-		else 
-			dbg::trace(L"no chessboard detected");
+		
 
 	}
 
@@ -620,12 +662,12 @@ namespace HoloPool
 		double thresvmin;
 
 		if (vmax < 205)
-			thresvmax = vmax + 40;
+			thresvmax = vmax + 10;
 		else
 			thresvmax = 255;
 
 		if (vmax > 50)
-			thresvmin = vmax - 40;
+			thresvmin = vmax - 50;
 		else
 			thresvmin = 0;
 
@@ -636,10 +678,6 @@ namespace HoloPool
 
 		// Create a structuring element
 
-		int erosion_size = 5;
-		Mat element = getStructuringElement(cv::MORPH_CROSS,
-			cv::Size(2 * erosion_size + 1, 2 * erosion_size + 1),
-			cv::Point(erosion_size, erosion_size));
 
 		int erosion_size2 = 3;
 		Mat element2 = getStructuringElement(cv::MORPH_CROSS,
@@ -647,8 +685,11 @@ namespace HoloPool
 			cv::Point(erosion_size2, erosion_size2));
 
 		// Apply erosion or dilation on the image
-		cv::erode(threshold, threshold, element);
-		cv::dilate(threshold, threshold, element);
+		cv::erode(threshold, threshold, element2);
+		cv::dilate(threshold, threshold, element2);
+
+		cv::erode(threshold, threshold, element2);
+		cv::dilate(threshold, threshold, element2);
 
 		cv::erode(threshold, threshold, element2);
 		cv::dilate(threshold, threshold, element2);
@@ -668,7 +709,6 @@ namespace HoloPool
 
 		cv::Point pts1 = Point2i{ int(frame.cols / 2. - ball_window_width / 2.), int(frame.rows / 2. - ball_window_width / 2.) };
 		
-
 		std::vector<cv::Vec3f> circles;
 		HoughCircles(contours, circles, CV_HOUGH_GRADIENT,
 			2, //accumulator resolution 
@@ -853,6 +893,9 @@ namespace HoloPool
 
 		SpatialPointerPose^ pose = SpatialPointerPose::TryGetAtTimestamp(m_WorldCoordinateSystem, prediction->Timestamp);
 		
+
+		
+
 	
 		if (_isActiveRenderer)
 		{
@@ -871,22 +914,15 @@ namespace HoloPool
 				float3 headBack = -headDirection;
 
 				float3 TargetPosition = headPosition + headDirection * distanceFromUser;
-				
-
+			
 				center_plane_world_space = TargetPosition;
 				
-
-				//dbg::trace(L"TargetPosition");
-				//dbg::trace(L"%f %f %f ", TargetPosition.x, TargetPosition.y, TargetPosition.z);
-
 				float _rotationInRadiansY = std::atan2(headDirection.z,headDirection.x) + DirectX::XM_PIDIV2;
 				const float radiansY = static_cast<float>(fmod(_rotationInRadiansY, DirectX::XM_2PI));
 
 				float4x4 RotationRenderedPlane = make_float4x4_rotation_y(-radiansY);
 
 				
-
-
 				//dbg::trace(L"RotationRenderedPlane Calcul");
 				//dbg::trace(L"%f %f %f %f ", RotationRenderedPlane.m11, RotationRenderedPlane.m12, RotationRenderedPlane.m13, RotationRenderedPlane.m14);
 				//dbg::trace(L"%f %f %f %f ", RotationRenderedPlane.m21, RotationRenderedPlane.m22, RotationRenderedPlane.m23, RotationRenderedPlane.m24);
@@ -916,6 +952,13 @@ namespace HoloPool
 
 				plane_frame_world_space = ConstructPlaneFromPointNormal(center_plane_world_space, normal_plane_world_space);
 				
+				
+				
+				
+				
+				
+
+				
 			}
 			else
 			{
@@ -923,7 +966,12 @@ namespace HoloPool
 			}
 		}
 
+		//dbg::trace(L"TargetPosition");
+		//dbg::trace(L"%f %f %f ", TargetPosition.x, TargetPosition.y, TargetPosition.z);
+
+
 		
+		/*
 		
 		for (auto cameraPose : prediction->CameraPoses)
 		{
@@ -935,24 +983,21 @@ namespace HoloPool
 			renderingParameters->SetFocusPoint(m_WorldCoordinateSystem, center_plane_world_space, normal_plane_world_space);
 		}
 		
+		*/
 
 		//Convert the latest frame in a cv::Mat object. 
 		cv::Mat frame;
 		rmcv::WrapHoloLensSensorFrameWithCvMat(latestFrame, frame);
+		
+		render_frame = false;
 
-		
-		
 		cv::Point textposition = Point2i{ 200 , 255};
 		
-
-
-		
-		cv::Point pts1 = Point2i{ int(frame.cols / 2. - ball_window_width / 2.), int(frame.rows / 2. - ball_window_width / 2.) };
-		cv::Point pts2 = Point2i{ int(frame.cols / 2. + ball_window_width / 2.), int(frame.rows / 2. + ball_window_width / 2.) };
+		cv::Point pts1 = Point2i{ int(frame.cols / 2. - ball_window_width / 2.)-100, int(frame.rows / 2. - ball_window_width / 2.) + 100};
+		cv::Point pts2 = Point2i{ int(frame.cols / 2. + ball_window_width / 2.)-100, int(frame.rows / 2. + ball_window_width / 2.) + 100};
 		cv::Rect2i Window = cv::Rect2i(pts1, pts2);
+	
 		
-
-		int number_target_avarage = 10;
 		
 		const auto tryTransformCtW = CameraCoordinateSystem->TryGetTransformTo(m_WorldCoordinateSystem);
 		
@@ -964,15 +1009,22 @@ namespace HoloPool
 			CameraPositionWorldSpace = m_transform(float3{ 0.f,0.f,0.f }, CameraToWorld);
 
 			if (!ready_to_detect_chessboard)
-			{ 
+			{
+				render_frame = true;
+				frame = 0 * frame;
 				order_airtap = 0;
-				cv::putText(frame, "Get placed at red cross and look toward the chessboard. When Ready, airtap", textposition, FONT_HERSHEY_SIMPLEX, 0.7 , Scalar{ 255,255,255 }, 2);
+				cv::putText(frame, "Get placed at red cross and look toward the chessboard. When Ready, airtap", textposition, FONT_HERSHEY_SIMPLEX, 0.7 , Scalar{ 255,255,255 }, 2);				
 			}
 
 			else
 			{
 				if (!_isPoolDetected)
+				{ 
+					render_frame = true;
 					DetectPoolTableChessBoard(frame, CameraCoordinateSystem, cameraIntrinsics, CameraToWorld);
+					frame = 0 * frame;
+					cv::putText(frame, "Wait until the chessboard is detected", textposition, FONT_HERSHEY_SIMPLEX, 0.7, Scalar{ 255,255,255 }, 2);
+				}
 				else
 				{
 					order_airtap = 1;
@@ -983,6 +1035,7 @@ namespace HoloPool
 					float3 pocket_world_space4 = pocket_world_space[3];
 					float3 pocket_world_space5 = pocket_world_space[4];
 					float3 pocket_world_space6 = pocket_world_space[5];
+
 					m_markerpocket1->Update(pocket_world_space1, stepTimer);
 					m_markerpocket2->Update(pocket_world_space2, stepTimer);
 					m_markerpocket3->Update(pocket_world_space3, stepTimer);
@@ -990,18 +1043,15 @@ namespace HoloPool
 					m_markerpocket5->Update(pocket_world_space5, stepTimer);
 					m_markerpocket6->Update(pocket_world_space6, stepTimer);
 
-					Point2f pocket1_rendered_frame = OnRenderedFrame(false, frame, pocket_world_space1, cameraIntrinsics);
-					Point2f pocket2_rendered_frame = OnRenderedFrame(false, frame, pocket_world_space2, cameraIntrinsics);
-					Point2f pocket3_rendered_frame = OnRenderedFrame(false, frame, pocket_world_space3, cameraIntrinsics);
-					Point2f pocket4_rendered_frame = OnRenderedFrame(false, frame, pocket_world_space4, cameraIntrinsics);
-					Point2f pocket5_rendered_frame = OnRenderedFrame(false, frame, pocket_world_space5, cameraIntrinsics);
-					Point2f pocket6_rendered_frame = OnRenderedFrame(false, frame, pocket_world_space6, cameraIntrinsics);
+					m_markerWhiteBall->Update(pocket_world_space1, stepTimer);
 
-
+					
+					
 					if (!ready_to_detect_target_ball)
 					{
+						render_frame = true;
 						target_identified = false;
-						cv::putText(frame, "Put the target ball in the black square. When Ready, airtap", textposition, FONT_HERSHEY_SIMPLEX, 0.7, Scalar{ 255,0,0 }, 2);
+						cv::putText(frame, "Put the target ball in the black square. When Ready, airtap", textposition, FONT_HERSHEY_SIMPLEX, 0.7, Scalar{255,255,255}, 2);
 						cv::rectangle(frame, Window, Scalar{ 0,0,0 }, 2);
 						target_count = 0;
 						sum_x_target = 0;
@@ -1012,7 +1062,8 @@ namespace HoloPool
 					{
 						if (!target_identified)
 						{
-							cv::putText(frame, "Wait until the ball is detected", textposition, FONT_HERSHEY_SIMPLEX, 0.7, Scalar{ 255,0,0 }, 2);
+							render_frame = true;
+							cv::putText(frame, "Wait until the ball is detected", textposition, FONT_HERSHEY_SIMPLEX, 0.7, Scalar{ 255,255,255 }, 2);
 							cv::rectangle(frame, Window, Scalar{ 0,0,0 }, 2);
 
 							if (target_count < number_target_avarage)
@@ -1044,7 +1095,7 @@ namespace HoloPool
 
 								cv::Point center_targetball = { x_target + pts1.x, y_target + pts1.y };
 
-								cv::circle(frame, center_targetball, radius_targetball, Scalar{ 255,255,0 }, 2, 8, 0);
+								//cv::circle(frame, center_targetball, radius_targetball, Scalar{ 255,255,0 }, 2, 8, 0);
 
 								float BallWidthInMeters = 0.0525f;
 								float const estimatedTargetBallDepth = cameraIntrinsics->FocalLength.x * BallWidthInMeters / (2.0f * radius_targetball);
@@ -1058,6 +1109,9 @@ namespace HoloPool
 
 								TargetBallPositionInWorldSpace = IntersectionLinePlane(CameraPositionWorldSpace, TargetBallPositionInWorldSpace1, pool_table_plane);
 
+							
+		
+								
 								m_markerTargetBall->Update(TargetBallPositionInWorldSpace, stepTimer);
 
 								target_identified = true;
@@ -1075,6 +1129,7 @@ namespace HoloPool
 							if (!ready_to_detect_white_ball)
 							{
 								white_identified = false;
+								render_frame = true;
 								cv::putText(frame, "Put the white ball in the square. When Ready, airtap", textposition, FONT_HERSHEY_SIMPLEX, 0.7, Scalar{ 255,0,0 }, 2);
 								cv::rectangle(frame, Window, Scalar{ 255, 0 , 0 }, 2);
 								white_count = 0;
@@ -1086,6 +1141,7 @@ namespace HoloPool
 							{
 								if (!white_identified)
 								{
+									render_frame = true;
 									cv::putText(frame, "Wait until the ball is detected", textposition, FONT_HERSHEY_SIMPLEX, 0.7, Scalar{ 255,0,0 }, 2);
 									cv::rectangle(frame, Window, Scalar{ 255, 0 , 0 }, 2);
 
@@ -1099,9 +1155,7 @@ namespace HoloPool
 											sum_y_white = sum_y_white + whiteball[1];
 											sum_radius_white = sum_radius_white + whiteball[2];
 
-											cv::Point centerwhite = { int(whiteball[0] + pts1.x), int(whiteball[1] + pts1.y) };
-
-											//cv::circle(frame, centerwhite, int(whiteball[2]), Scalar{ 255,255,0 }, 2, 8, 0);
+											//cv::Point centerwhite = { int(whiteball[0] + pts1.x), int(whiteball[1] + pts1.y) };
 
 											white_count = white_count + 1;
 
@@ -1118,8 +1172,6 @@ namespace HoloPool
 
 										cv::Point center_whiteball = { x_white + pts1.x, y_white + pts1.y };
 
-										cv::circle(frame, center_whiteball, radius_whiteball, Scalar{ 255,255,0 }, 2, 8, 0);
-
 										float BallWidthInMeters = 0.0525f;
 										float const estimatedWhiteBallDepth = cameraIntrinsics->FocalLength.x * BallWidthInMeters / (2.0f * radius_whiteball);
 										float unproject_xwhite = float((center_whiteball.x - cameraIntrinsics->PrincipalPoint.x) / cameraIntrinsics->FocalLength.x);
@@ -1131,6 +1183,8 @@ namespace HoloPool
 										float3 WhiteBallPositionInWorldSpace1 = m_transform(WhiteBallPositionInCameraSpace, CameraToWorld);
 
 										WhiteBallPositionInWorldSpace = IntersectionLinePlane(CameraPositionWorldSpace, WhiteBallPositionInWorldSpace1, pool_table_plane);
+
+										
 
 										m_markerWhiteBall->Update(WhiteBallPositionInWorldSpace, stepTimer);
 
@@ -1147,35 +1201,172 @@ namespace HoloPool
 
 									frame = 0 * frame;
 
-									Point2f WhiteBallPositionRenderedFrame2D = OnRenderedFrame(true, frame, WhiteBallPositionInWorldSpace, cameraIntrinsics);
-									Point2f TargetBallPositionRenderedFrame2D = OnRenderedFrame(true, frame, TargetBallPositionInWorldSpace, cameraIntrinsics);
+									//Point2f WhiteBallPositionRenderedFrame2D = OnRenderedFrame(false, frame, WhiteBallPositionInWorldSpace, cameraIntrinsics);
+									//Point2f TargetBallPositionRenderedFrame2D = OnRenderedFrame(false, frame, TargetBallPositionInWorldSpace, cameraIntrinsics);
 
-									cv::line(frame, WhiteBallPositionRenderedFrame2D, TargetBallPositionRenderedFrame2D, Scalar(0, 0, 255), 2);
+									
 
-									cv::line(frame, pocket1_rendered_frame, TargetBallPositionRenderedFrame2D, Scalar(100, 0, 0), 2);
-									cv::line(frame, pocket2_rendered_frame, TargetBallPositionRenderedFrame2D, Scalar(100, 0, 0), 2);
-									cv::line(frame, pocket3_rendered_frame, TargetBallPositionRenderedFrame2D, Scalar(100, 0, 0), 2);
-									cv::line(frame, pocket4_rendered_frame, TargetBallPositionRenderedFrame2D, Scalar(100, 0, 0), 2);
-									cv::line(frame, pocket5_rendered_frame, TargetBallPositionRenderedFrame2D, Scalar(100, 0, 0), 2);
-									cv::line(frame, pocket6_rendered_frame, TargetBallPositionRenderedFrame2D, Scalar(100, 0, 0), 2);
+									cue_target->Update(TargetBallPositionInWorldSpace, WhiteBallPositionInWorldSpace , stepTimer);
+									
+									target_pocket1->Update(TargetBallPositionInWorldSpace, pocket_world_space1, stepTimer);
+									target_pocket2->Update(TargetBallPositionInWorldSpace, pocket_world_space2, stepTimer);
+									target_pocket3->Update(TargetBallPositionInWorldSpace, pocket_world_space3, stepTimer);
+									target_pocket4->Update(TargetBallPositionInWorldSpace, pocket_world_space4, stepTimer);
+									target_pocket5->Update(TargetBallPositionInWorldSpace, pocket_world_space5, stepTimer);
+									target_pocket6->Update(TargetBallPositionInWorldSpace, pocket_world_space6, stepTimer);
+									
+									//cv::line(frame, WhiteBallPositionRenderedFrame2D, TargetBallPositionRenderedFrame2D, Scalar(0, 0, 255), 2);
+
+									//cv::line(frame, pocket1_rendered_frame, TargetBallPositionRenderedFrame2D, Scalar(100, 0, 0), 2);
+									//cv::line(frame, pocket2_rendered_frame, TargetBallPositionRenderedFrame2D, Scalar(100, 0, 0), 2);
+									//cv::line(frame, pocket3_rendered_frame, TargetBallPositionRenderedFrame2D, Scalar(100, 0, 0), 2);
+									//cv::line(frame, pocket4_rendered_frame, TargetBallPositionRenderedFrame2D, Scalar(100, 0, 0), 2);
+									//cv::line(frame, pocket5_rendered_frame, TargetBallPositionRenderedFrame2D, Scalar(100, 0, 0), 2);
+									//cv::line(frame, pocket6_rendered_frame, TargetBallPositionRenderedFrame2D, Scalar(100, 0, 0), 2);
+
+									
+
+
 								}
 
 							}
 
 						}
 
+						
+
 
 					}
 
+					
+					
 				}
 
 					
 			}
 			
 		}
+
+
+
+/*
+	cv::Point pts1 = Point2i{ int(frame.cols / 2. - ball_window_width / 2.) - 100, int(frame.rows / 2. - ball_window_width / 2.) + 100 };
+	cv::Point pts2 = Point2i{ int(frame.cols / 2. + ball_window_width / 2.) - 100, int(frame.rows / 2. + ball_window_width / 2.) + 100 };
+	cv::Rect2i Window = cv::Rect2i(pts1, pts2);
+
+		render_frame = true;
+		Mat HSVframe;
+		vector<Mat> channels(3);
+		Mat frame2 = frame;
 		
-		
-		
+		cv::cvtColor(frame2, HSVframe, COLOR_BGR2HSV);
+		cv::split(HSVframe, channels);
+		Mat hframe, sframe, vframe;
+		hframe = channels[0];
+		sframe = channels[1];
+		vframe = channels[2];
+
+		int histSize = 180;
+
+		// Set the range
+		float range[] = { 0, 180 };
+		const float* histRange = { range };
+		bool uniform = true; bool accumulate = false;
+
+		Mat hist;
+
+		// Compute the histogram
+		calcHist(&hframe, 1, 0, Mat(), hist, 1, &histSize, &histRange, uniform, accumulate);
+
+		double maxVal = 0;
+		cv::Point hmaxPoint;
+		minMaxLoc(hist, 0, &maxVal, 0, &hmaxPoint);
+		int hmax = hmaxPoint.y;
+
+		int histSize2 = 255;
+
+		// Set the range
+		float range2[] = { 0, 255 };
+		const float* histRange2 = { range2 };
+
+		Mat vhist;
+
+		// Compute the histogram
+		calcHist(&vframe, 1, 0, Mat(), vhist, 1, &histSize2, &histRange2, uniform, accumulate);
+
+		cv::Point vmaxPoint;
+		minMaxLoc(vhist, 0, &maxVal, 0, &vmaxPoint);
+		int vmax = vmaxPoint.y;
+
+		double thresvmax;
+		double thresvmin;
+
+		if (vmax < 205)
+			thresvmax = vmax + 10;
+		else
+			thresvmax = 255;
+
+		if (vmax > 50)
+			thresvmin = vmax - 50;
+		else
+			thresvmin = 0;
+
+		Scalar mintable = { double(hmax - 10), 2 , thresvmin };
+		Scalar maxtable = { double(hmax + 10) , 240 , thresvmax };
+		Mat threshold;
+		cv::inRange(HSVframe, mintable, maxtable, threshold);
+
+		// Create a structuring element
+		int erosion_size2 = 3;
+		Mat element2 = getStructuringElement(cv::MORPH_CROSS,
+			cv::Size(2 * erosion_size2 + 1, 2 * erosion_size2 + 1),
+			cv::Point(erosion_size2, erosion_size2));
+
+		// Apply erosion or dilation on the image
+		cv::erode(threshold, threshold, element2);
+		cv::dilate(threshold, threshold, element2);
+
+		cv::erode(threshold, threshold, element2);
+		cv::dilate(threshold, threshold, element2);
+
+		cv::erode(threshold, threshold, element2);
+		cv::dilate(threshold, threshold, element2);
+
+		cv::erode(threshold, threshold, element2);
+		cv::dilate(threshold, threshold, element2);
+
+		Mat threshold_window = threshold(Window);
+
+		int MaxRadius = int(ball_window_width / 2.);
+		int MinRadius = 10;
+		Scalar color_ball = Scalar(0, 0, 0);
+
+		//Detect contours avec FindContours
+		//Mat contours;
+		//Canny(threshold_window, contours, 50, 100);
+
+		//cv::Point pts1 = Point2i{ int(frame.cols / 2. - ball_window_width / 2.), int(frame.rows / 2. - ball_window_width / 2.) };
+
+		std::vector<cv::Vec3f> circles;
+		HoughCircles(threshold, circles, CV_HOUGH_GRADIENT,
+			2, //accumulator resolution 
+			5, //min distance between two circles
+			100, //Canny high threshold
+			80, // min number of votes
+			MinRadius, MaxRadius); // min and max radius
+
+
+		std::vector<Vec3f>::const_iterator Icir = circles.begin();
+
+		while (Icir != circles.end())
+		{
+			//circle(Icontours, cv::Point((* Icir)[0],(* Icir)[1]),(* Icir)[2],Scalar{150},2);
+
+			circle(frame, cv::Point(int((*Icir)[0]), int((*Icir)[1])), int( (*Icir)[2]), Scalar{ 0,0,0 }, 2);
+			++Icir;
+		}
+	*/	
+	
 		
 		//Update 2D texture to suit with blurredPVCameraImage
 
@@ -1206,17 +1397,27 @@ namespace HoloPool
 
 		if (_isActiveRenderer)
 		{
-			_currentSlateRenderer->Render(_currentVisualizationTexture);
+			if (render_frame)
+				_currentSlateRenderer->Render(_currentVisualizationTexture);
+
 			m_markerTargetBall->Render();
 			m_markerWhiteBall->Render();
+
 			m_markerpocket1->Render();
 			m_markerpocket2->Render();
 			m_markerpocket3->Render();
 			m_markerpocket4->Render();
 			m_markerpocket5->Render();
 			m_markerpocket6->Render();
-			m_markerpocket7->Render();
 			
+			cue_target->Render();
+
+			target_pocket1->Render();
+			target_pocket2->Render();
+			target_pocket3->Render();
+			target_pocket4->Render();
+			target_pocket5->Render();
+			target_pocket6->Render();
 		}
 	}
 

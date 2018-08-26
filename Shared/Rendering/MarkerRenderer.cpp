@@ -186,14 +186,14 @@ namespace Rendering
             const float sx = 0.02f, sy = 0.02f, sz = 0.02f;
             static const std::array<VertexPositionColorTexture, 8> cubeVertices =
             { {
-                { { -sx, -sy, -sz },{ 1.0f, 0.0f, 0.0f },{ 0.0f, 1.0f } },
-                { { -sx, -sy,  sz },{ 0.0f, 1.0f, 0.0f },{ 0.0f, 1.0f } },
-                { { -sx,  sy, -sz },{ 0.0f, 0.0f, 1.0f },{ 0.0f, 0.0f } },
+                { { -sx, -sy, -sz },{ 0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f } },
+                { { -sx, -sy,  sz },{ 0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f } },
+                { { -sx,  sy, -sz },{ 0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f } },
                 { { -sx,  sy,  sz },{ 0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f } },
-                { { sx, -sy, -sz },{ 1.0f, 0.0f, 1.0f },{ 1.0f, 1.0f } },
-                { { sx, -sy,  sz },{ 0.0f, 1.0f, 0.0f },{ 1.0f, 1.0f } },
-                { { sx,  sy, -sz },{ 0.0f, 0.0f, 1.0f },{ 1.0f, 0.0f } },
-                { { sx,  sy,  sz },{ 0.0f, 1.0f, 0.0f },{ 1.0f, 0.0f } },
+                { { sx, -sy, -sz },{ 0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f } },
+                { { sx, -sy,  sz },{ 0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f } },
+                { { sx,  sy, -sz },{ 0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f } },
+                { { sx,  sy,  sz },{ 0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f } },
                 } };
 
             D3D11_SUBRESOURCE_DATA vertexBufferData = { 0 };
@@ -220,6 +220,8 @@ namespace Rendering
             // 2, 1, and 0 from the vertex buffer compose the
             // first triangle of this mesh.
             // Note that the winding order is clockwise by default.
+
+			
             constexpr std::array<unsigned short, 36> cubeIndices =
             { {
                     2,1,0, // -x
@@ -240,6 +242,8 @@ namespace Rendering
                     1,3,7, // +z
                     1,7,5,
                 } };
+
+			
 
             _indexCount = static_cast<uint32_t>(cubeIndices.size());
 

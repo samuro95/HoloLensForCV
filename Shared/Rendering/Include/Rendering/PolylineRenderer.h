@@ -23,8 +23,7 @@ namespace Rendering
 
         void ReleaseDeviceDependentResources();
 
-        void Update(
-            _In_ const Graphics::StepTimer& timer);
+		void Update(Windows::Foundation::Numerics::float3 position, const Graphics::StepTimer& timer);
 
         void Render();
 
@@ -59,5 +58,7 @@ namespace Rendering
         bool _loadingComplete = false;
 
         Windows::Foundation::Numerics::float3 _position = { 0.f, 0.f, 0.f };
+
+
     };
 }

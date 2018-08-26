@@ -23,9 +23,18 @@ namespace Rendering
 
     // Called once per frame. Rotates the cube, and calculates and sets the model matrix
     // relative to the position transform indicated by hologramPositionTransform.
-    void PolylineRenderer::Update(
-        _In_ const Graphics::StepTimer& /* timer */)
+    void PolylineRenderer::Update(Windows::Foundation::Numerics::float3 position, const Graphics::StepTimer& /* timer */)
+       
     {
+		float ball_real_diameter = 0.051f;
+
+		using Windows::Foundation::Numerics::float3;
+
+		position = position + float3{ 0.f, - ball_real_diameter / 2.f, 0.f };
+
+		SetPosition(position);
+
+
         // Position the marker.
         const auto modelTranslation =
             DirectX::XMMatrixTranslationFromVector(
@@ -37,8 +46,7 @@ namespace Rendering
         // matrix is transposed to prepare it for the shader.
         XMStoreFloat4x4(
             &_modelConstantBufferData.model,
-            DirectX::XMMatrixTranspose(
-                modelTranslation));
+            DirectX::XMMatrixTranspose(modelTranslation));
 
         // Loading is asynchronous. Resources must be created before they can be updated.
         if (!_loadingComplete)
@@ -147,20 +155,24 @@ namespace Rendering
             // Note that the cube size has changed from the default DirectX app
             // template. Windows Holographic is scaled in meters, so to draw the
             // cube at a comfortable size we made the cube width 0.2 m (20 cm).
-            const float sx = 1.0f, sy = 1.0f, sz = 1.0f;
+            const float s = 0.05f;
+			const float d = float(0.05/sqrt(2));
 
             {
-                static const std::array<VertexPositionColorTexture, 8> cubeVertices =
-                { {
-                    { { -sx, -sy, -sz },{ 1.0f, 0.0f, 0.0f },{ 0.0f, 1.0f } },
-                    { { -sx, -sy,  sz },{ 0.0f, 1.0f, 0.0f },{ 0.0f, 1.0f } },
-                    { { -sx,  sy, -sz },{ 0.0f, 0.0f, 1.0f },{ 0.0f, 0.0f } },
-                    { { -sx,  sy,  sz },{ 0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f } },
-                    { { sx, -sy, -sz },{ 1.0f, 0.0f, 1.0f },{ 1.0f, 1.0f } },
-                    { { sx, -sy,  sz },{ 0.0f, 1.0f, 0.0f },{ 1.0f, 1.0f } },
-                    { { sx,  sy, -sz },{ 0.0f, 0.0f, 1.0f },{ 1.0f, 0.0f } },
-                    { { sx,  sy,  sz },{ 0.0f, 1.0f, 0.0f },{ 1.0f, 0.0f } },
-                    } };
+				static const std::array<VertexPositionColorTexture,8 > cubeVertices =
+				{ {
+				{ { 0.f, 0.f, -s },{ 1.0f, 0.0f, 0.0f },{ 1.0f, 1.0f } },
+				{ { -d , 0.f,  -d },{ 1.0f, 0.0f, 0.0f },{ 1.0f, 1.0f } },
+				{ { -s, 0.f, 0.f },{ 1.0f, 0.0f, 0.0f },{ 1.0f, 1.0f } },
+				{ { -d, 0.f ,  d },{ 1.0f, 0.0f, 0.0f },{ 1.0f, 1.0f } },
+				{ { 0.f, 0.f,  s },{ 1.0f, 0.0f, 0.0f },{ 1.0f, 1.0f } },
+				{ { d , 0.f,  d },{ 1.0f, 0.0f, 0.0f },{ 1.0f, 1.0f } },
+				{ { s , 0.f,  0.f },{ 1.0f, 0.0f, 0.0f },{ 0.0f, 1.0f } },
+				{ { d , 0.f , -d },{ 1.0f, 0.0f, 0.0f },{ 0.0f, 1.0f } },
+				} };
+
+
+
 
                 for (size_t i = 0; i < cubeVertices.size(); ++i)
                 {

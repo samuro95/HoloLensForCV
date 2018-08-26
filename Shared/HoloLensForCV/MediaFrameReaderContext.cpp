@@ -172,6 +172,7 @@ namespace HoloLensForCV
                 sensorFrame->FrameToOrigin =
                     frameToOriginReference->Value;
 
+
 				sensorFrame->OriginToFrame =
 					OriginToFrameReference->Value;
 

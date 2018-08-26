@@ -17,3 +17,8 @@
 #include <Rendering/SlateRenderer.h>
 #include <Rendering/MarkerRenderer.h>
 #include <Rendering/PolylineRenderer.h>
+#include <Rendering/BlueLineRenderer.h>
+#include <Rendering/LineRenderer.h>
+
+
+

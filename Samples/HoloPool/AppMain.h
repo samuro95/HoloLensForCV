@@ -37,6 +37,8 @@ namespace HoloPool {
 
 	private:
 
+		int cc = 0;
+
 		// Asynchronously creates resources for new holographic cameras.
 		void OnCameraAdded(
 			Windows::Graphics::Holographic::HolographicSpace^ sender,
@@ -63,9 +65,14 @@ namespace HoloPool {
 
 		std::vector<std::shared_ptr<Rendering::SlateRenderer> >_slateRendererList;
 		std::vector<std::shared_ptr<Rendering::MarkerRenderer> >_markerRendererList;
+		std::vector<std::shared_ptr<Rendering::PolylineRenderer> > _polylineRendererList;
+		std::vector<std::shared_ptr<Rendering::LineRenderer> > _lineRendererList;
+		std::vector<std::shared_ptr<Rendering::BlueLineRenderer> > _BluelineRendererList;
+
+
 		std::shared_ptr<Rendering::SlateRenderer> _currentSlateRenderer;
-		std::shared_ptr<Rendering::MarkerRenderer>  m_markerWhiteBall;
-		std::shared_ptr<Rendering::MarkerRenderer>  m_markerTargetBall;
+		std::shared_ptr<Rendering::PolylineRenderer>  m_markerWhiteBall;
+		std::shared_ptr<Rendering::PolylineRenderer>  m_markerTargetBall;
 		std::shared_ptr<Rendering::MarkerRenderer> m_markerpocket1;
 		std::shared_ptr<Rendering::MarkerRenderer>  m_markerpocket2;
 		std::shared_ptr<Rendering::MarkerRenderer>  m_markerpocket3;
@@ -73,6 +80,18 @@ namespace HoloPool {
 		std::shared_ptr<Rendering::MarkerRenderer>  m_markerpocket5;
 		std::shared_ptr<Rendering::MarkerRenderer>  m_markerpocket6;
 		std::shared_ptr<Rendering::MarkerRenderer>  m_markerpocket7;
+
+
+
+
+		std::shared_ptr<Rendering::BlueLineRenderer> cue_target;
+		std::shared_ptr<Rendering::LineRenderer> target_pocket1;
+		std::shared_ptr<Rendering::LineRenderer> target_pocket2;
+		std::shared_ptr<Rendering::LineRenderer> target_pocket3;
+		std::shared_ptr<Rendering::LineRenderer> target_pocket4;
+		std::shared_ptr<Rendering::LineRenderer> target_pocket5;
+		std::shared_ptr<Rendering::LineRenderer> target_pocket6;
+
 
 		// Selected HoloLens media frame source group
 		HoloLensForCV::MediaFrameSourceGroupType _selectedHoloLensMediaFrameSourceGroupType;
@@ -239,7 +258,7 @@ namespace HoloPool {
 		
 		Windows::Foundation::Numerics::float3 tv;
 		Windows::Foundation::Numerics::float4 pv;
-		int cc = 0;
+	
 
 		Windows::Foundation::Numerics::float4x4 ChessToWorld;
 		Windows::Foundation::Numerics::float4x4 WorldToChess;
@@ -264,6 +283,17 @@ namespace HoloPool {
 		float sum_x_white;
 		float sum_y_white;
 		float sum_radius_white;
+
+		int chess_iteration = 0;
+		int num_chess_iteration = 1;
+
+		cv::Mat sum_rvec;
+		
+		cv::Mat sum_tvec;
+
+		bool render_frame = false;
+
+		int number_target_avarage = 10;
 		
 	};
 }

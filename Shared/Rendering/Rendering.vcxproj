@@ -244,6 +244,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Include\Rendering\All.h" />
+    <ClInclude Include="Include\Rendering\BlueLineRenderer.h" />
+    <ClInclude Include="Include\Rendering\LineRenderer.h" />
     <ClInclude Include="Include\Rendering\MarkerRenderer.h" />
     <ClInclude Include="Include\Rendering\PolylineRenderer.h" />
     <ClInclude Include="Include\Rendering\SlateMaterial.h" />
@@ -254,6 +256,8 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="BlueLineRenderer.cpp" />
+    <ClCompile Include="LineRenderer.cpp" />
     <ClCompile Include="MarkerRenderer.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
