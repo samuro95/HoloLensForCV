@@ -13,7 +13,7 @@ using namespace cv;
 int main()
 {
     Mat image;
-    image = imread("b.jpg", CV_LOAD_IMAGE_COLOR); 
+    image = imread("chess.jpg", CV_LOAD_IMAGE_COLOR); 
 
     Mat gray;
     cvtColor(image, gray, CV_BGR2GRAY);

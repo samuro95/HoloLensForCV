@@ -46,8 +46,8 @@ int main() {
             
             i=i+1;
 
-            imwrite("situation.png",frame);
-
+            //imwrite("situation.png",frame);
+            
             // H channel
             Mat HSVframe;
             vector<Mat> channels(3);
@@ -58,6 +58,39 @@ int main() {
             Mat S = channels[1];
             Mat V = channels[2];
 
+
+            vector<Mat> channels2(3);
+            frame.convertTo(frame, CV_64FC4);
+            cv::split(frame, channels2);
+            Mat B = channels2[0];
+            Mat G = channels2[1];
+            Mat R = channels2[2];
+
+            Mat I=B+G+R;
+            Mat BC,RC,GC;
+            cv::divide(B,I,BC);
+            cv::divide(G,I,GC);
+            cv::divide(R,I,RC);
+            vector<Mat> channels3(3);
+            channels3[0]=BC;
+            channels3[1]=GC;
+            channels3[2]=RC;
+            Mat Nframe;
+           
+            //normalize(BC,BC,0,1,NORM_MINMAX);
+            //normalize(GC,GC,0,1,NORM_MINMAX);
+            //normalize(RC,RC,0,1,NORM_MINMAX);
+
+            cv::merge(channels3,Nframe);
+
+            Nframe=Nframe*255;
+            frame.convertTo(frame, CV_8UC4);
+
+            imshow("Nframe", Nframe);
+            imshow("frame", frame);
+            imwrite("Nframe.png",Nframe);
+
+        
             /*
             frame.convertTo(frame, CV_64FC4);
             frame = frame /255.f;
@@ -334,7 +367,7 @@ int main() {
             //frame.convertTo(frame, CV_64FC4);
         
             
-            
+            /*
             //H HISTOGRAM SEGMENTATION
 
             int hhistSize = 180;
@@ -403,7 +436,7 @@ int main() {
                 thresvmin = 0;
 
 
-            
+    */   
 
     /*
             hframe.convertTo(hframe, CV_64FC1);
@@ -429,7 +462,7 @@ int main() {
         */
             
             
-         
+         /*
             Scalar mintable = Scalar{ double(hmax - 10), 2 , thresvmin };
 		    Scalar maxtable = Scalar{ double(hmax + 10) , 240 , thresvmax };
 		    Mat threshold,threshold2;
@@ -488,7 +521,7 @@ int main() {
             //imwrite("frameHSV.png",frame);
 
             
-           
+           */
 
           /*
 
@@ -525,7 +558,7 @@ int main() {
             }
 
 */
-        //imshow("frame", frame);
+        imshow("frame", frame);
         //imshow("threshold2", threshold2);
         //imshow("Icontours", Icontours);
         //imshow("Icontours2", Icontours2);
